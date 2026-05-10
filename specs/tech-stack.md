@@ -7,7 +7,7 @@
 | Desktop     | **Electron**            | Multi-window support, mature ecosystem          |
 | UI          | **React**               | Component-driven UI                             |
 | Language    | **TypeScript**          | End-to-end type safety (main + renderer)        |
-| Database    | **SQLite**              | Local storage for slides, notes, preferences    |
+| Database    | **SQLite** (`better-sqlite3`) | Local storage for slides, notes, preferences    |
 
 ## PowerPoint Import
 

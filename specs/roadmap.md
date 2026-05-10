@@ -5,7 +5,8 @@ Each phase is intentionally small — one shippable increment of work.
 ## Phase 1 — Project Scaffolding
 
 Set up the Electron + React + TypeScript boilerplate with dev tooling
-(Vite, ESLint, Prettier, Vitest). Verify the app launches an empty window.
+(Vite, ESLint, Prettier, Vitest). Integrate SQLite for local storage.
+Verify the app launches an empty window.
 
 ## Phase 2 — PowerPoint Import
 
