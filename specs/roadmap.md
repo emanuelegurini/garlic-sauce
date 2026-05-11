@@ -2,7 +2,7 @@
 
 Each phase is intentionally small — one shippable increment of work.
 
-## Phase 1 — Project Scaffolding
+## Phase 1 — Project Scaffolding (Complete)
 
 Set up the Electron + React + TypeScript boilerplate with dev tooling
 (Vite, ESLint, Prettier, Vitest). Integrate SQLite for local storage.
