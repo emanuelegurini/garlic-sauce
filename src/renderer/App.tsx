@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { SlideViewer } from './SlideViewer';
 
 type ImportStatus = 'error' | 'idle' | 'importing' | 'selecting' | 'success';
 
@@ -71,6 +72,9 @@ export function App() {
     setStatus('selecting');
     setError(undefined);
     setResult(undefined);
+    setActiveFilePath(undefined);
+    setFontPromptOpen(false);
+    setFontDownloadNotice(undefined);
     setProgress(emptyProgress);
 
     const startedImport = await api.importPresentation();
@@ -99,66 +103,98 @@ export function App() {
   };
 
   const isBusy = status === 'selecting' || status === 'importing';
+  const isViewing = status === 'success' && result !== undefined;
 
   return (
     <main className="workspace">
       <header className="titlebar">
         <div>
           <p className="app-kicker">Garlic Sauce</p>
-          <h1>Presentation Import</h1>
+          <h1>{isViewing ? result.title : 'Presentation Import'}</h1>
         </div>
         <button className="primary-action" disabled={!api || isBusy} onClick={importPresentation}>
-          {status === 'selecting' ? 'Choosing file' : 'Import deck'}
+          {status === 'selecting'
+            ? 'Choosing file'
+            : isViewing
+              ? 'Import another deck'
+              : 'Import deck'}
         </button>
       </header>
 
-      <section className="import-surface" aria-live="polite">
-        <div className="import-surface__main">
-          <div className="status-strip">
-            <span className={`status-dot status-dot--${status}`} />
-            <span>{statusLabel(status)}</span>
+      {isViewing ? (
+        <section className="viewer-layout">
+          <SlideViewer presentationId={result.presentationId} title={result.title} />
+
+          <aside className="summary-panel" aria-label="Import summary">
+            <dl>
+              <div>
+                <dt>Slide</dt>
+                <dd>1/{result.slideCount}</dd>
+              </div>
+              <div>
+                <dt>Media</dt>
+                <dd>{result.mediaCount}</dd>
+              </div>
+              <div>
+                <dt>Fonts</dt>
+                <dd>{result.requiredFonts.length}</dd>
+              </div>
+              <div>
+                <dt>Missing</dt>
+                <dd>{result.missingFonts.length}</dd>
+              </div>
+            </dl>
+          </aside>
+        </section>
+      ) : (
+        <section className="import-surface" aria-live="polite">
+          <div className="import-surface__main">
+            <div className="status-strip">
+              <span className={`status-dot status-dot--${status}`} />
+              <span>{statusLabel(status)}</span>
+            </div>
+
+            {activeFileName ? <p className="file-name">{activeFileName}</p> : null}
+
+            <div className="progress-block">
+              <progress value={progress.percent} max={100} />
+              <div className="progress-block__meta">
+                <span>{progress.message || 'No deck imported'}</span>
+                <span>{Math.round(progress.percent)}%</span>
+              </div>
+            </div>
+
+            {status === 'importing' ? (
+              <button className="secondary-action" onClick={cancelImport}>
+                Cancel import
+              </button>
+            ) : null}
+
+            {status === 'error' && error ? <p className="error-banner">{error}</p> : null}
           </div>
 
-          {activeFileName ? <p className="file-name">{activeFileName}</p> : null}
-
-          <div className="progress-block">
-            <progress value={progress.percent} max={100} />
-            <div className="progress-block__meta">
-              <span>{progress.message || 'No deck imported'}</span>
-              <span>{Math.round(progress.percent)}%</span>
-            </div>
-          </div>
-
-          {status === 'importing' ? (
-            <button className="secondary-action" onClick={cancelImport}>
-              Cancel import
-            </button>
-          ) : null}
-
-          {status === 'error' && error ? <p className="error-banner">{error}</p> : null}
-        </div>
-
-        <aside className="summary-panel" aria-label="Import summary">
-          <dl>
-            <div>
-              <dt>Slides</dt>
-              <dd>{result?.slideCount ?? progress.slideCount ?? 0}</dd>
-            </div>
-            <div>
-              <dt>Media</dt>
-              <dd>{result?.mediaCount ?? 0}</dd>
-            </div>
-            <div>
-              <dt>Fonts</dt>
-              <dd>{result?.requiredFonts.length ?? 0}</dd>
-            </div>
-            <div>
-              <dt>Missing</dt>
-              <dd>{result?.missingFonts.length ?? 0}</dd>
-            </div>
-          </dl>
-        </aside>
-      </section>
+          <aside className="summary-panel" aria-label="Import summary">
+            <dl>
+              <div>
+                <dt>Slides</dt>
+                <dd>{result?.slideCount ?? progress.slideCount ?? 0}</dd>
+              </div>
+              <div>
+                <dt>Media</dt>
+                <dd>{result?.mediaCount ?? 0}</dd>
+              </div>
+              <div>
+                <dt>Fonts</dt>
+                <dd>{result?.requiredFonts.length ?? 0}</dd>
+              </div>
+              <div>
+                <dt>Missing</dt>
+                <dd>{result?.missingFonts.length ?? 0}</dd>
+              </div>
+            </dl>
+          </aside>
+        </section>
+      )}
 
       <section className="runtime-footer" aria-label="Runtime versions">
         <span>{api ? `Running on ${api.platform}` : 'Desktop bridge unavailable'}</span>

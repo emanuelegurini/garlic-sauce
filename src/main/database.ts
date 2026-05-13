@@ -98,6 +98,22 @@ export function initializeDatabase(database: AppDatabase): void {
       FOREIGN KEY (slide_id) REFERENCES slides(id) ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS slide_images (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      slide_id INTEGER NOT NULL UNIQUE,
+      presentation_id INTEGER NOT NULL,
+      slide_order INTEGER NOT NULL,
+      width_px INTEGER NOT NULL,
+      height_px INTEGER NOT NULL,
+      image_format TEXT NOT NULL DEFAULT 'png',
+      data BLOB NOT NULL,
+      render_error TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (slide_id) REFERENCES slides(id) ON DELETE CASCADE,
+      FOREIGN KEY (presentation_id) REFERENCES presentations(id) ON DELETE CASCADE,
+      UNIQUE (presentation_id, slide_order)
+    );
+
     CREATE TABLE IF NOT EXISTS required_fonts (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       presentation_id INTEGER NOT NULL,
@@ -118,6 +134,9 @@ export function initializeDatabase(database: AppDatabase): void {
 
     CREATE INDEX IF NOT EXISTS idx_media_presentation
       ON media (presentation_id);
+
+    CREATE INDEX IF NOT EXISTS idx_slide_images_presentation_order
+      ON slide_images (presentation_id, slide_order);
   `);
 }
 

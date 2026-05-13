@@ -121,6 +121,13 @@ h2 {
   gap: 20px;
 }
 
+.viewer-layout {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 280px);
+  gap: 20px;
+}
+
 .import-surface__main,
 .summary-panel,
 .font-modal {
@@ -222,6 +229,58 @@ progress::-webkit-progress-value {
   line-height: 1.45;
 }
 
+.slide-viewer {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid #cfd6dd;
+  border-radius: 8px;
+  background: #2b2f33;
+  box-shadow: 0 16px 36px rgba(32, 33, 36, 0.1);
+}
+
+.slide-viewer--message {
+  min-height: 360px;
+  gap: 14px;
+  align-content: center;
+  color: #e9edf1;
+  font-weight: 800;
+}
+
+.slide-viewer__image {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.slide-viewer__notice {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  max-width: min(520px, calc(100% - 28px));
+  padding: 8px 10px;
+  border: 1px solid #f0b8b3;
+  border-radius: 7px;
+  color: #7a271a;
+  background: rgba(255, 243, 241, 0.94);
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.loading-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid rgba(255, 255, 255, 0.32);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: spin 0.85s linear infinite;
+}
+
 .summary-panel {
   padding: 22px;
 }
@@ -321,6 +380,12 @@ progress::-webkit-progress-value {
   gap: 10px;
 }
 
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @media (max-width: 760px) {
   .workspace {
     gap: 18px;
@@ -335,6 +400,14 @@ progress::-webkit-progress-value {
 
   .import-surface {
     grid-template-columns: 1fr;
+  }
+
+  .viewer-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .slide-viewer {
+    min-height: 280px;
   }
 
   .import-surface__main {

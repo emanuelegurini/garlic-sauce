@@ -34,6 +34,22 @@ type ContentTypes = {
   overrides: Map<string, string>;
 };
 
+type PlaceholderReference = {
+  index?: string;
+  type: string;
+};
+
+type ParsedShape = ImportedShape & {
+  placeholder?: PlaceholderReference;
+};
+
+type SlideLayout = {
+  media: ImportedMedia[];
+  name?: string;
+  path: string;
+  shapes: ParsedShape[];
+};
+
 const DEFAULT_SLIDE_SIZE: SlideSize = {
   widthEmu: 12_192_000,
   heightEmu: 6_858_000,
@@ -44,6 +60,21 @@ const MEDIA_KIND_BY_RELATIONSHIP = new Map([
   ['audio', 'audio'],
   ['video', 'video'],
 ] as const);
+
+const DEFAULT_THEME_COLOUR_MAP: Record<string, string> = {
+  bg1: 'lt1',
+  tx1: 'dk1',
+  bg2: 'lt2',
+  tx2: 'dk2',
+  accent1: 'accent1',
+  accent2: 'accent2',
+  accent3: 'accent3',
+  accent4: 'accent4',
+  accent5: 'accent5',
+  accent6: 'accent6',
+  hlink: 'hlink',
+  folHlink: 'folHlink',
+};
 
 function throwIfAborted(signal: AbortSignal | undefined): void {
   if (signal?.aborted) {
@@ -203,6 +234,30 @@ function parseTheme(entries: ZipEntries): ImportedTheme {
   };
 }
 
+function applyThemeColourMap(theme: ImportedTheme, colourMap: Record<string, string>): void {
+  for (const [alias, target] of Object.entries(colourMap)) {
+    const colour = theme.colours[target];
+
+    if (colour) {
+      theme.colours[alias] = colour;
+    }
+  }
+}
+
+function applyMasterColourMap(entries: ZipEntries, theme: ImportedTheme): void {
+  const masterEntry = [...entries.keys()]
+    .filter((entryPath) => /^ppt\/slideMasters\/slideMaster\d+\.xml$/.test(entryPath))
+    .sort((left, right) => left.localeCompare(right, undefined, { numeric: true }))[0];
+  const masterXml = masterEntry ? getXml(entries, masterEntry) : undefined;
+  const colourMap = masterXml ? findStartTags(masterXml, 'clrMap')[0]?.attributes : undefined;
+
+  applyThemeColourMap(theme, DEFAULT_THEME_COLOUR_MAP);
+
+  if (colourMap) {
+    applyThemeColourMap(theme, colourMap);
+  }
+}
+
 function firstTypeface(xml: string | undefined): string | undefined {
   if (!xml) {
     return undefined;
@@ -336,18 +391,53 @@ function resolveFontTypeface(
   return typeface;
 }
 
+function paragraphLevel(paragraphXml: string): number {
+  const level = numberAttribute(findStartTags(paragraphXml, 'pPr')[0]?.attributes.lvl);
+  return Math.max(0, Math.min(8, level ?? 0));
+}
+
+function listStyleDefaultRunProperties(
+  xml: string,
+  level: number,
+): { attributes?: Record<string, string>; full: string } {
+  const listStyle = findFirstElement(xml, 'lstStyle');
+  const levelProperties = listStyle
+    ? findFirstElement(listStyle.inner, `lvl${level + 1}pPr`)
+    : undefined;
+  const defaultRunPropertiesElement = levelProperties
+    ? findFirstElement(levelProperties.inner, 'defRPr')
+    : undefined;
+  const defaultRunPropertiesStart = levelProperties
+    ? findStartTags(levelProperties.inner, 'defRPr')[0]
+    : undefined;
+  const attributes =
+    defaultRunPropertiesElement?.attributes ?? defaultRunPropertiesStart?.attributes;
+
+  return {
+    attributes,
+    full: defaultRunPropertiesElement?.full ?? defaultRunPropertiesStart?.full ?? '',
+  };
+}
+
 function parseTextRuns(xml: string, theme: ImportedTheme): TextRun[] {
   const paragraphs = findElements(xml, 'p');
   const runs: TextRun[] = [];
 
   for (const paragraph of paragraphs) {
-    const alignment = findStartTags(paragraph.inner, 'pPr')[0]?.attributes.algn;
+    const level = paragraphLevel(paragraph.inner);
+    const listDefaultRunProperties = listStyleDefaultRunProperties(xml, level);
+    const paragraphProperties = findStartTags(paragraph.inner, 'pPr')[0];
+    const alignment = paragraphProperties?.attributes.algn;
     const defaultRunPropertiesElement = findFirstElement(paragraph.inner, 'defRPr');
     const defaultRunPropertiesStart = findStartTags(paragraph.inner, 'defRPr')[0];
     const defaultRunPropertiesAttributes =
-      defaultRunPropertiesElement?.attributes ?? defaultRunPropertiesStart?.attributes;
+      defaultRunPropertiesElement?.attributes ??
+      defaultRunPropertiesStart?.attributes ??
+      listDefaultRunProperties.attributes;
     const defaultRunPropertiesXml =
-      defaultRunPropertiesElement?.full ?? defaultRunPropertiesStart?.full ?? '';
+      defaultRunPropertiesElement?.full ??
+      defaultRunPropertiesStart?.full ??
+      listDefaultRunProperties.full;
 
     for (const run of findElements(paragraph.inner, 'r')) {
       const runText = textContent(run.inner, 't');
@@ -360,12 +450,18 @@ function parseTextRuns(xml: string, theme: ImportedTheme): TextRun[] {
       const runPropertiesStart = findStartTags(run.inner, 'rPr')[0];
       const runPropertiesAttributes =
         runPropertiesElement?.attributes ?? runPropertiesStart?.attributes;
-      const propertiesXml =
-        runPropertiesElement?.full ?? runPropertiesStart?.full ?? defaultRunPropertiesXml;
-      const typeface = findStartTags(propertiesXml, 'latin')[0]?.attributes.typeface;
+      const explicitPropertiesXml = runPropertiesElement?.full ?? runPropertiesStart?.full;
+      const propertiesXml = explicitPropertiesXml ?? defaultRunPropertiesXml;
+      const typeface =
+        findStartTags(propertiesXml, 'latin')[0]?.attributes.typeface ??
+        findStartTags(defaultRunPropertiesXml, 'latin')[0]?.attributes.typeface;
       const fontSize = numberAttribute(
         runPropertiesAttributes?.sz ?? defaultRunPropertiesAttributes?.sz,
       );
+      const colour =
+        parseColour(explicitPropertiesXml ?? '', theme) ??
+        parseColour(defaultRunPropertiesXml, theme) ??
+        theme.colours.tx1;
 
       runs.push({
         content: runText,
@@ -373,7 +469,7 @@ function parseTextRuns(xml: string, theme: ImportedTheme): TextRun[] {
         fontSizePt: fontSize === undefined ? undefined : fontSize / 100,
         bold: (runPropertiesAttributes?.b ?? defaultRunPropertiesAttributes?.b) === '1',
         italic: (runPropertiesAttributes?.i ?? defaultRunPropertiesAttributes?.i) === '1',
-        colour: parseColour(propertiesXml, theme),
+        colour,
         alignment,
       });
     }
@@ -397,7 +493,20 @@ function parseTextRuns(xml: string, theme: ImportedTheme): TextRun[] {
   return runs;
 }
 
-function parseShape(xml: string, theme: ImportedTheme): ImportedShape {
+function parsePlaceholder(xml: string): PlaceholderReference | undefined {
+  const placeholder = findStartTags(xml, 'ph')[0];
+
+  if (!placeholder) {
+    return undefined;
+  }
+
+  return {
+    index: placeholder.attributes.idx,
+    type: placeholder.attributes.type ?? 'body',
+  };
+}
+
+function parseShape(xml: string, theme: ImportedTheme): ParsedShape {
   const nonVisualProperties = findStartTags(xml, 'cNvPr')[0];
   const shapeProperties = findFirstElement(xml, 'spPr');
   const shapePropertyXml = shapeProperties?.full ?? '';
@@ -414,10 +523,11 @@ function parseShape(xml: string, theme: ImportedTheme): ImportedShape {
     fill: parseFill(shapePropertyXml, theme),
     stroke: parseStroke(shapePropertyXml, theme),
     textRuns: parseTextRuns(xml, theme),
+    placeholder: parsePlaceholder(xml),
   };
 }
 
-function parseConnector(xml: string, theme: ImportedTheme): ImportedShape {
+function parseConnector(xml: string, theme: ImportedTheme): ParsedShape {
   const nonVisualProperties = findStartTags(xml, 'cNvPr')[0];
   const shapeProperties = findFirstElement(xml, 'spPr');
   const shapePropertyXml = shapeProperties?.full ?? '';
@@ -431,10 +541,11 @@ function parseConnector(xml: string, theme: ImportedTheme): ImportedShape {
     fill: parseFill(shapePropertyXml, theme),
     stroke: parseStroke(shapePropertyXml, theme),
     textRuns: parseTextRuns(xml, theme),
+    placeholder: parsePlaceholder(xml),
   };
 }
 
-function parsePicture(xml: string, theme: ImportedTheme): ImportedShape {
+function parsePicture(xml: string, theme: ImportedTheme): ParsedShape {
   const nonVisualProperties = findStartTags(xml, 'cNvPr')[0];
   const shapeProperties = findFirstElement(xml, 'spPr');
   const blip = findStartTags(xml, 'blip')[0];
@@ -448,10 +559,11 @@ function parsePicture(xml: string, theme: ImportedTheme): ImportedShape {
     stroke: parseStroke(shapeProperties?.full ?? '', theme),
     textRuns: [],
     mediaRelationshipId: relationshipId,
+    placeholder: parsePlaceholder(xml),
   };
 }
 
-function parseGraphicFrame(xml: string): ImportedShape {
+function parseGraphicFrame(xml: string): ParsedShape {
   const nonVisualProperties = findStartTags(xml, 'cNvPr')[0];
 
   return {
@@ -459,11 +571,12 @@ function parseGraphicFrame(xml: string): ImportedShape {
     name: nonVisualProperties?.attributes.name,
     geometry: parseGeometry(xml),
     textRuns: [],
+    placeholder: parsePlaceholder(xml),
   };
 }
 
-function parseSlideShapes(slideXml: string, theme: ImportedTheme): ImportedShape[] {
-  const shapes: ImportedShape[] = [];
+function parseSlideShapes(slideXml: string, theme: ImportedTheme): ParsedShape[] {
+  const shapes: ParsedShape[] = [];
   const shapePattern = /<((?:[\w.-]+:)?(sp|cxnSp|pic|graphicFrame))\b[^>]*>[\s\S]*?<\/\1>/g;
   let match: RegExpExecArray | null;
 
@@ -490,6 +603,126 @@ function parseSlideShapes(slideXml: string, theme: ImportedTheme): ImportedShape
   return shapes;
 }
 
+function withInheritedGeometry(
+  geometry: ShapeGeometry,
+  fallback: ShapeGeometry | undefined,
+): ShapeGeometry {
+  return {
+    heightEmu: geometry.heightEmu ?? fallback?.heightEmu,
+    rotation: geometry.rotation ?? fallback?.rotation,
+    widthEmu: geometry.widthEmu ?? fallback?.widthEmu,
+    xEmu: geometry.xEmu ?? fallback?.xEmu,
+    yEmu: geometry.yEmu ?? fallback?.yEmu,
+  };
+}
+
+function withInheritedTextRun(run: TextRun, fallback: TextRun | undefined): TextRun {
+  return {
+    alignment: run.alignment ?? fallback?.alignment,
+    bold: run.bold || (fallback?.bold ?? false),
+    colour: run.colour ?? fallback?.colour,
+    content: run.content,
+    fontFamily: run.fontFamily ?? fallback?.fontFamily,
+    fontSizePt: run.fontSizePt ?? fallback?.fontSizePt,
+    italic: run.italic || (fallback?.italic ?? false),
+  };
+}
+
+function inheritPlaceholderShape(
+  shape: ParsedShape,
+  template: ParsedShape | undefined,
+): ParsedShape {
+  if (!template) {
+    return shape;
+  }
+
+  return {
+    ...shape,
+    fill: shape.fill ?? template.fill,
+    geometry: withInheritedGeometry(shape.geometry, template.geometry),
+    preset: shape.preset ?? template.preset,
+    stroke: shape.stroke ?? template.stroke,
+    textRuns: shape.textRuns.map((run, index) =>
+      withInheritedTextRun(run, template.textRuns[index] ?? template.textRuns[0]),
+    ),
+  };
+}
+
+function placeholdersMatch(shape: ParsedShape, template: ParsedShape): boolean {
+  if (!shape.placeholder || !template.placeholder) {
+    return false;
+  }
+
+  if (shape.placeholder.index && template.placeholder.index) {
+    return shape.placeholder.index === template.placeholder.index;
+  }
+
+  return shape.placeholder.type === template.placeholder.type;
+}
+
+function findPlaceholderTemplate(
+  shape: ParsedShape,
+  layoutShapes: ParsedShape[],
+): ParsedShape | undefined {
+  if (shape.placeholder) {
+    const matchingPlaceholder = layoutShapes.find((layoutShape) =>
+      placeholdersMatch(shape, layoutShape),
+    );
+
+    if (matchingPlaceholder) {
+      return matchingPlaceholder;
+    }
+  }
+
+  return shape.name
+    ? layoutShapes.find((layoutShape) => layoutShape.name === shape.name)
+    : undefined;
+}
+
+function namespaceRelationshipId(namespace: string, relationshipId: string): string {
+  return `${namespace}:${relationshipId}`;
+}
+
+function namespaceFillRelationship(
+  fill: FillStyle | undefined,
+  namespace: string,
+): FillStyle | undefined {
+  if (fill?.kind !== 'image' || !fill.relationshipId) {
+    return fill;
+  }
+
+  return {
+    ...fill,
+    relationshipId: namespaceRelationshipId(namespace, fill.relationshipId),
+  };
+}
+
+function namespaceShapeRelationships(shape: ParsedShape, namespace: string): ParsedShape {
+  return {
+    ...shape,
+    fill: namespaceFillRelationship(shape.fill, namespace),
+    mediaRelationshipId: shape.mediaRelationshipId
+      ? namespaceRelationshipId(namespace, shape.mediaRelationshipId)
+      : undefined,
+  };
+}
+
+function materializeSlideShapes(
+  slideShapes: ParsedShape[],
+  layout: SlideLayout | undefined,
+): ImportedShape[] {
+  if (!layout) {
+    return slideShapes;
+  }
+
+  const layoutBaseShapes = layout.shapes.filter((shape) => !shape.placeholder);
+  const resolvedSlideShapes = slideShapes.map((shape) =>
+    inheritPlaceholderShape(shape, findPlaceholderTemplate(shape, layout.shapes)),
+  );
+
+  return [...layoutBaseShapes, ...resolvedSlideShapes];
+}
+
 function mediaKindFromRelationship(type: string): ImportedMedia['kind'] {
   const localType = type.split('/').at(-1);
 
@@ -500,13 +733,14 @@ function mediaKindFromRelationship(type: string): ImportedMedia['kind'] {
   return 'unknown';
 }
 
-function extractSlideMedia(
+function extractRelatedMedia(
   entries: ZipEntries,
-  slidePath: string,
+  ownerPath: string,
   slideIndex: number,
   contentTypes: ContentTypes,
+  namespace?: string,
 ): ImportedMedia[] {
-  const relationshipXml = getXml(entries, relationshipPathFor(slidePath));
+  const relationshipXml = getXml(entries, relationshipPathFor(ownerPath));
 
   if (!relationshipXml) {
     return [];
@@ -518,7 +752,7 @@ function extractSlideMedia(
       return kind !== 'unknown' && relationship.targetMode !== 'External';
     })
     .flatMap((relationship) => {
-      const mediaPath = resolvePackagePath(slidePath, relationship.target);
+      const mediaPath = resolvePackagePath(ownerPath, relationship.target);
       const data = entries.get(mediaPath);
 
       if (!data) {
@@ -526,10 +760,13 @@ function extractSlideMedia(
       }
 
       const extension = path.posix.extname(mediaPath).slice(1).toLowerCase();
+      const relationshipId = namespace
+        ? namespaceRelationshipId(namespace, relationship.id)
+        : relationship.id;
 
       return [
         {
-          relationshipId: relationship.id,
+          relationshipId,
           slideIndex,
           name: basename(mediaPath),
           path: mediaPath,
@@ -550,7 +787,7 @@ function relationshipPathFor(entryPath: string): string {
   );
 }
 
-function parseLayoutName(entries: ZipEntries, slidePath: string): string | undefined {
+function resolveSlideLayoutPath(entries: ZipEntries, slidePath: string): string | undefined {
   const relationshipXml = getXml(entries, relationshipPathFor(slidePath));
 
   if (!relationshipXml) {
@@ -565,10 +802,44 @@ function parseLayoutName(entries: ZipEntries, slidePath: string): string | undef
     return undefined;
   }
 
-  const layoutPath = resolvePackagePath(slidePath, layoutRelationship.target);
+  return resolvePackagePath(slidePath, layoutRelationship.target);
+}
+
+function parseSlideLayout(
+  entries: ZipEntries,
+  slidePath: string,
+  slideIndex: number,
+  theme: ImportedTheme,
+  contentTypes: ContentTypes,
+): SlideLayout | undefined {
+  const layoutPath = resolveSlideLayoutPath(entries, slidePath);
+
+  if (!layoutPath) {
+    return undefined;
+  }
+
   const layoutXml = getXml(entries, layoutPath);
 
-  return layoutXml ? findStartTags(layoutXml, 'cSld')[0]?.attributes.name : undefined;
+  if (!layoutXml) {
+    return undefined;
+  }
+
+  const relationshipNamespace = `layout:${layoutPath}`;
+
+  return {
+    media: extractRelatedMedia(
+      entries,
+      layoutPath,
+      slideIndex,
+      contentTypes,
+      relationshipNamespace,
+    ),
+    name: findStartTags(layoutXml, 'cSld')[0]?.attributes.name,
+    path: layoutPath,
+    shapes: parseSlideShapes(layoutXml, theme).map((shape) =>
+      namespaceShapeRelationships(shape, relationshipNamespace),
+    ),
+  };
 }
 
 function parseSlideOrder(entries: ZipEntries, presentationXml: string): string[] {
@@ -637,6 +908,7 @@ export function parsePptx(
   const presentationXml = getRequiredXml(entries, 'ppt/presentation.xml');
   const size = parseSlideSize(presentationXml);
   const theme = parseTheme(entries);
+  applyMasterColourMap(entries, theme);
   const contentTypes = parseContentTypes(entries);
   const slidePaths = parseSlideOrder(entries, presentationXml);
 
@@ -654,15 +926,20 @@ export function parsePptx(
     const slideXml = getRequiredXml(entries, slidePath);
     const background = findFirstElement(slideXml, 'bg');
     const slideNumber = slideIndex + 1;
+    const layout = parseSlideLayout(entries, slidePath, slideIndex, theme, contentTypes);
+    const slideShapes = parseSlideShapes(slideXml, theme);
 
     slides.push({
       sourceId: slidePath,
       order: slideIndex,
-      layoutName: parseLayoutName(entries, slidePath),
+      layoutName: layout?.name,
       size,
       background: background ? parseFill(background.full, theme) : undefined,
-      shapes: parseSlideShapes(slideXml, theme),
-      media: extractSlideMedia(entries, slidePath, slideIndex, contentTypes),
+      shapes: materializeSlideShapes(slideShapes, layout),
+      media: [
+        ...(layout?.media ?? []),
+        ...extractRelatedMedia(entries, slidePath, slideIndex, contentTypes),
+      ],
     });
 
     report(options, {

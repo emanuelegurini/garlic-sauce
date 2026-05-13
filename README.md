@@ -1,5 +1,30 @@
 # Garlic Sauce
 
+## Development Setup
+
+Garlic Sauce is an Electron desktop app. The app parses PowerPoint files
+locally and stores imported data in SQLite.
+
+For high-fidelity slide previews, install the native conversion tools used by
+the import pipeline:
+
+```sh
+brew install --cask libreoffice
+brew install poppler
+```
+
+LibreOffice converts `.ppt` / `.pptx` files to PDF, and Poppler's `pdftoppm`
+converts each PDF page to a PNG stored in SQLite. If either tool is missing or
+fails, the app falls back to the built-in basic TypeScript rasterizer so imports
+can still complete.
+
+Useful commands:
+
+```sh
+npm start
+npm run validate
+```
+
 ## Input from Stakeholders
 
 - Emanuele is a trainer who trains people online by presenting concepts while sharing his screen. The problem is that he prefers to give lessons using his notes on the side, but students should not see them. So Emanuele wants to share only the app window where the slides are displayed, and not the app window where the notes are shown. Emanuele sometimes uses just one screen, which makes this approach difficult to manage, and sometimes has two screens, which makes it easier to keep the slides on one screen and the notes on the other.

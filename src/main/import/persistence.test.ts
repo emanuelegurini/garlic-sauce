@@ -79,10 +79,18 @@ describe('presentation import persistence', () => {
 
     expect(result.slideCount).toBe(1);
     expect(progressMessages).toContain('Saving imported presentation');
+    expect(progressMessages).toContain('Rendering slide images');
 
     database = openDatabase(databasePath);
     expect(database.prepare('SELECT title FROM presentations').get()).toEqual({
       title: 'Quarterly Training',
     });
+    expect(database.prepare('SELECT COUNT(*) AS count FROM slide_images').get()).toEqual({
+      count: 1,
+    });
+    const image = database.prepare('SELECT data FROM slide_images LIMIT 1').get() as
+      | { data: Buffer }
+      | undefined;
+    expect(image?.data.length).toBeGreaterThan(0);
   });
 });

@@ -173,6 +173,127 @@ export function createSamplePptx(): Buffer {
   ]);
 }
 
+export function createLayoutBackedPptx(): Buffer {
+  return createStoredZip([
+    zipEntry(
+      '[Content_Types].xml',
+      `<?xml version="1.0" encoding="UTF-8"?>
+      <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+        <Default Extension="xml" ContentType="application/xml"/>
+        <Default Extension="png" ContentType="image/png"/>
+        <Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>
+        <Override PartName="/ppt/slides/slide1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>
+        <Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>
+        <Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/>
+        <Override PartName="/ppt/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>
+      </Types>`,
+    ),
+    zipEntry(
+      'ppt/presentation.xml',
+      `<p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"
+        xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+        <p:sldSz cx="12192000" cy="6858000" type="screen16x9"/>
+        <p:sldIdLst><p:sldId id="256" r:id="rId1"/></p:sldIdLst>
+      </p:presentation>`,
+    ),
+    zipEntry(
+      'ppt/_rels/presentation.xml.rels',
+      `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+        <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide1.xml"/>
+        <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="theme/theme1.xml"/>
+      </Relationships>`,
+    ),
+    zipEntry(
+      'ppt/theme/theme1.xml',
+      `<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="Dark Training Theme">
+        <a:themeElements>
+          <a:clrScheme name="Dark Training">
+            <a:dk1><a:srgbClr val="000000"/></a:dk1>
+            <a:lt1><a:srgbClr val="FFFFFF"/></a:lt1>
+            <a:dk2><a:srgbClr val="232F3E"/></a:dk2>
+            <a:lt2><a:srgbClr val="F1F3F3"/></a:lt2>
+            <a:accent1><a:srgbClr val="FF9900"/></a:accent1>
+            <a:accent2><a:srgbClr val="146EB4"/></a:accent2>
+            <a:accent3><a:srgbClr val="1D8102"/></a:accent3>
+            <a:accent4><a:srgbClr val="D13212"/></a:accent4>
+            <a:accent5><a:srgbClr val="8C4FFF"/></a:accent5>
+            <a:accent6><a:srgbClr val="00A1C9"/></a:accent6>
+            <a:hlink><a:srgbClr val="146EB4"/></a:hlink>
+            <a:folHlink><a:srgbClr val="8C4FFF"/></a:folHlink>
+          </a:clrScheme>
+          <a:fontScheme name="Office">
+            <a:majorFont><a:latin typeface="Amazon Ember"/></a:majorFont>
+            <a:minorFont><a:latin typeface="Amazon Ember"/></a:minorFont>
+          </a:fontScheme>
+        </a:themeElements>
+      </a:theme>`,
+    ),
+    zipEntry(
+      'ppt/slideMasters/slideMaster1.xml',
+      `<p:sldMaster xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"
+        xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+        <p:cSld><p:spTree/></p:cSld>
+        <p:clrMap bg1="dk1" tx1="lt1" bg2="dk2" tx2="lt2" accent1="accent1" accent2="accent2" accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" hlink="hlink" folHlink="folHlink"/>
+      </p:sldMaster>`,
+    ),
+    zipEntry(
+      'ppt/slides/slide1.xml',
+      `<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"
+        xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+        xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+        <p:cSld>
+          <p:spTree>
+            <p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>
+            <p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></a:xfrm></p:grpSpPr>
+            <p:sp>
+              <p:nvSpPr><p:cNvPr id="2" name="Title 1"/><p:cNvSpPr/><p:nvPr><p:ph type="ctrTitle"/></p:nvPr></p:nvSpPr>
+              <p:spPr/>
+              <p:txBody><a:bodyPr/><a:lstStyle/><a:p><a:r><a:rPr/><a:t>Layout title text</a:t></a:r></a:p></p:txBody>
+            </p:sp>
+          </p:spTree>
+        </p:cSld>
+      </p:sld>`,
+    ),
+    zipEntry(
+      'ppt/slides/_rels/slide1.xml.rels',
+      `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+        <Relationship Id="rIdLayout1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>
+      </Relationships>`,
+    ),
+    zipEntry(
+      'ppt/slideLayouts/slideLayout1.xml',
+      `<p:sldLayout xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"
+        xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+        xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+        <p:cSld name="Title Slide">
+          <p:spTree>
+            <p:nvGrpSpPr><p:cNvPr id="1" name=""/><p:cNvGrpSpPr/><p:nvPr/></p:nvGrpSpPr>
+            <p:grpSpPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></a:xfrm></p:grpSpPr>
+            <p:pic>
+              <p:nvPicPr><p:cNvPr id="3" name="Background"/><p:cNvPicPr/><p:nvPr userDrawn="1"/></p:nvPicPr>
+              <p:blipFill><a:blip r:embed="rIdLayoutImage"/></p:blipFill>
+              <p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="12192000" cy="6858000"/></a:xfrm></p:spPr>
+            </p:pic>
+            <p:sp>
+              <p:nvSpPr><p:cNvPr id="2" name="Title 1"/><p:cNvSpPr/><p:nvPr><p:ph type="ctrTitle"/></p:nvPr></p:nvSpPr>
+              <p:spPr><a:xfrm><a:off x="914400" y="685800"/><a:ext cx="5486400" cy="914400"/></a:xfrm></p:spPr>
+              <p:txBody><a:bodyPr/><a:lstStyle><a:lvl1pPr algn="ctr"><a:defRPr sz="4800"/></a:lvl1pPr></a:lstStyle><a:p><a:r><a:rPr/><a:t>Layout title prompt</a:t></a:r></a:p></p:txBody>
+            </p:sp>
+          </p:spTree>
+        </p:cSld>
+      </p:sldLayout>`,
+    ),
+    zipEntry(
+      'ppt/slideLayouts/_rels/slideLayout1.xml.rels',
+      `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+        <Relationship Id="rIdLayoutImage" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/layout-background.png"/>
+        <Relationship Id="rIdMaster" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="../slideMasters/slideMaster1.xml"/>
+      </Relationships>`,
+    ),
+    zipEntry('ppt/media/layout-background.png', Buffer.from([0x89, 0x50, 0x4e, 0x47])),
+  ]);
+}
+
 function pptRecord(recordType: number, payload: Buffer, recordVersion = 0): Buffer {
   const header = Buffer.alloc(8);
   header.writeUInt16LE(recordVersion, 0);

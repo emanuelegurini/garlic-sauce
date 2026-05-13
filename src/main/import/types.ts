@@ -1,6 +1,6 @@
 export type PresentationFormat = 'ppt' | 'pptx';
 
-export type ImportProgressStage = 'reading' | 'parsing' | 'persisting' | 'complete';
+export type ImportProgressStage = 'reading' | 'parsing' | 'persisting' | 'rendering' | 'complete';
 
 export type ImportProgress = {
   importId?: string;

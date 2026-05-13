@@ -12,6 +12,9 @@
   IPC.
 - Extracted presentations are persisted transactionally to SQLite using
   normalized presentation, slide, shape, text, media, theme, and font tables.
+- After persistence, the import pipeline renders preview PNGs for every slide.
+  It prefers LibreOffice + Poppler native conversion for fidelity, then falls
+  back to the in-process TypeScript rasterizer when native tools are unavailable.
 
 ## Captured Data
 
@@ -27,10 +30,13 @@
 ## Current Limits
 
 - `.pptx` extraction is intentionally dependency-light and targets common OOXML
-  slide content. It does not yet implement the complete DrawingML inheritance
-  model needed for pixel-perfect rendering.
+  slide content. Native conversion is used for high-fidelity preview images, so
+  the structured extraction model does not need to implement every DrawingML
+  rendering rule before the viewer can display accurate slides.
 - Legacy `.ppt` support extracts compound-file streams, slide records, document
   dimensions, and text atoms, but does not yet recover full binary formatting or
   embedded media records.
+- High-fidelity preview rendering depends on local native tools. On macOS:
+  `brew install --cask libreoffice` and `brew install poppler`.
 - The missing-font modal prompts for download, but an approved font-source
   provider still needs to be wired before files can be downloaded safely.

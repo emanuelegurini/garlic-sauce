@@ -12,11 +12,31 @@
 ## PowerPoint Import
 
 `.pptx` files are parsed **directly** in-process (they are ZIP archives
-containing XML and media assets). No external application is invoked.
+containing XML and media assets). `.ppt` files are parsed directly from OLE
+compound streams on a best-effort basis. No external application is invoked for
+metadata extraction or persistence.
 
-Candidate libraries will be evaluated during Phase 2; the key requirement
-is that slide layout, fonts, colours, and embedded media are faithfully
-preserved.
+## Slide Rendering
+
+Imported slide previews are stored as PNG images in SQLite.
+
+Preferred rendering path:
+
+1. LibreOffice Impress converts the source `.ppt` / `.pptx` to PDF.
+2. Poppler `pdftoppm` rasterizes PDF pages to PNG.
+3. The app stores each PNG in the `slide_images` table.
+
+On macOS, the app launches LibreOffice conversion through LaunchServices to
+avoid direct headless `soffice` startup crashes seen on some systems. The
+in-process TypeScript rasterizer remains as a basic fallback when native tools
+are missing or conversion fails.
+
+Local tool requirements for high-fidelity rendering on macOS:
+
+```sh
+brew install --cask libreoffice
+brew install poppler
+```
 
 ## Testing & Validation
 
