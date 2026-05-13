@@ -14,12 +14,14 @@ codebase.
 | UI library        | React, rendered in the main `BrowserWindow`                 |
 | Language          | TypeScript end-to-end (main process + renderer)             |
 | Bundler           | Vite (via Electron Forge Vite plugin)                       |
+| Type checking     | `tsc --noEmit`, exposed through `npm run typecheck`         |
 | Linting           | ESLint with TypeScript rules                                |
 | Formatting        | Prettier, with a `format:check` npm script                  |
-| Testing           | Vitest — at least one smoke test                            |
+| Testing           | Vitest in Node, with co-located `src/**/*.test.ts` files    |
+| Validation        | `npm run validate` runs typecheck, lint, format, and tests  |
 | Database          | SQLite via `better-sqlite3`, with native rebuild configured |
 | App shell         | Single window displaying a placeholder React component      |
-| Dev experience    | `npm start` launches the app; HMR works in dev mode         |
+| Dev experience    | `npm start` launches the app; HMR and `test:watch` work     |
 
 ## Out of Scope
 
@@ -30,12 +32,13 @@ codebase.
 
 ## Key Decisions
 
-| Decision                        | Rationale                                       |
-| ------------------------------- | ----------------------------------------------- |
-| Electron Forge + Vite template  | Recommended by tech-stack.md; fast dev, good DX |
-| `better-sqlite3` (not `sql.js`) | Fast, synchronous, mature Electron support      |
-| Vitest (not Jest)               | Specified in roadmap; Vite-native, fast         |
-| `eslint-config-prettier`        | Prevents ESLint ↔ Prettier rule conflicts       |
+| Decision                        | Rationale                                         |
+| ------------------------------- | ------------------------------------------------- |
+| Electron Forge + Vite template  | Recommended by tech-stack.md; fast dev, good DX   |
+| `better-sqlite3` (not `sql.js`) | Fast, synchronous, mature Electron support        |
+| Vitest (not Jest)               | Specified in roadmap; Vite-native, fast           |
+| Co-located tests                | Keeps behaviour checks near the source under test |
+| `eslint-config-prettier`        | Prevents ESLint ↔ Prettier rule conflicts         |
 
 ## Context
 

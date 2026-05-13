@@ -16,4 +16,13 @@ describe('SQLite database', () => {
 
     expect(readMetadata(database, 'smoke-test')).toBe('ok');
   });
+
+  it('updates existing metadata keys', () => {
+    database = openDatabase(':memory:');
+
+    writeMetadata(database, 'lesson-mode', 'slides');
+    writeMetadata(database, 'lesson-mode', 'whiteboard');
+
+    expect(readMetadata(database, 'lesson-mode')).toBe('whiteboard');
+  });
 });

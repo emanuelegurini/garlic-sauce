@@ -10,8 +10,11 @@
 ## 2. Configure dev tooling
 
 - Install and configure **ESLint** with TypeScript rules.
+- Add a `typecheck` script that runs TypeScript with `noEmit`.
 - Install and configure **Prettier**; add a `format:check` script.
-- Install and configure **Vitest**; add a `test` script.
+- Install and configure **Vitest** for `src/**/*.test.ts` files in a Node
+  environment; add `test` and `test:watch` scripts.
+- Add a `validate` script that runs typecheck, lint, formatting, and tests.
 - Ensure ESLint and Prettier do not conflict (use `eslint-config-prettier` or
   equivalent).
 
@@ -21,8 +24,8 @@
 - Configure Electron Forge / Vite to handle the native module rebuild.
 - Create a minimal database module that opens (or creates) a `.db` file in the
   app's user-data directory.
-- Write a Vitest test that creates an in-memory database, writes a row, and
-  reads it back.
+- Write co-located Vitest tests that create an in-memory database, write rows,
+  update metadata, and read values back.
 
 ## 4. Create minimal app shell
 
@@ -34,6 +37,7 @@
 
 - Confirm `npm start` opens the Electron window with the React component.
 - Confirm HMR reflects changes without a full reload.
-- Confirm `npm run lint`, `npm run format:check`, and `npm test` all pass.
+- Confirm `npm run validate` passes.
+- Confirm `npm run test:watch` starts Vitest watch mode for local development.
 - Confirm `npm run make` (or `npm run package`) produces a distributable
   artifact.
