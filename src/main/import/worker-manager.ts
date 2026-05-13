@@ -31,12 +31,18 @@ type ImportStart = {
   done: Promise<PersistedImportResult>;
 };
 
+type ImportPostProcessor = (
+  importId: string,
+  result: PersistedImportResult,
+) => Promise<PersistedImportResult>;
+
 export class PresentationImportManager {
   private readonly activeImports = new Map<string, ActiveImport>();
 
   constructor(
     private readonly databasePath: string,
     private readonly emit: (importId: string, event: ImportEvent) => void,
+    private readonly postProcess?: ImportPostProcessor,
   ) {}
 
   start(filePath: string): ImportStart {
@@ -71,15 +77,17 @@ export class PresentationImportManager {
           return;
         }
 
-        settle();
-
         if (message.type === 'success') {
-          this.emit(importId, {
-            status: 'success',
+          void this.completeImport({
+            importId,
+            isSettled: () => settled,
+            reject,
+            resolve,
             result: message.result,
+            settle,
           });
-          resolve(message.result);
         } else {
+          settle();
           this.emit(importId, {
             status: 'error',
             error: message.error,
@@ -135,6 +143,49 @@ export class PresentationImportManager {
     });
 
     return { importId, done };
+  }
+
+  private async completeImport({
+    importId,
+    isSettled,
+    reject,
+    resolve,
+    result,
+    settle,
+  }: {
+    importId: string;
+    isSettled: () => boolean;
+    reject: (error: Error) => void;
+    resolve: (result: PersistedImportResult) => void;
+    result: PersistedImportResult;
+    settle: () => void;
+  }): Promise<void> {
+    try {
+      const processedResult = this.postProcess ? await this.postProcess(importId, result) : result;
+
+      if (isSettled()) {
+        return;
+      }
+
+      settle();
+      this.emit(importId, {
+        status: 'success',
+        result: processedResult,
+      });
+      resolve(processedResult);
+    } catch (error) {
+      if (isSettled()) {
+        return;
+      }
+
+      settle();
+      const message = error instanceof Error ? error.message : 'Import post-processing failed.';
+      this.emit(importId, {
+        status: 'error',
+        error: message,
+      });
+      reject(new Error(message));
+    }
   }
 
   cancel(importId: string): boolean {

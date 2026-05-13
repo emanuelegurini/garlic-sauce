@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parsePresentationBuffer } from './pipeline';
-import { createSamplePptx } from './test-fixtures';
+import { createLayoutBackedPptx, createSamplePptx } from './test-fixtures';
 
 describe('PPTX import parsing', () => {
   it('extracts slide order, dimensions, text formatting, theme colours, and media', () => {
@@ -74,5 +74,52 @@ describe('PPTX import parsing', () => {
     expect(() =>
       parsePresentationBuffer(Buffer.from('not a zip archive'), '/tmp/corrupt.pptx'),
     ).toThrow('valid ZIP archive');
+  });
+
+  it('merges slide layout visuals and placeholder geometry into slides', () => {
+    const presentation = parsePresentationBuffer(createLayoutBackedPptx(), '/tmp/layout.pptx');
+    const slide = presentation.slides[0];
+    const background = slide.shapes.find((shape) => shape.kind === 'image');
+    const title = slide.shapes.find((shape) =>
+      shape.textRuns.some((run) => run.content === 'Layout title text'),
+    );
+
+    expect(presentation.theme.colours).toMatchObject({
+      bg1: '#000000',
+      tx1: '#FFFFFF',
+      tx2: '#F1F3F3',
+    });
+    expect(slide.layoutName).toBe('Title Slide');
+    expect(background).toMatchObject({
+      mediaRelationshipId: 'layout:ppt/slideLayouts/slideLayout1.xml:rIdLayoutImage',
+      geometry: {
+        xEmu: 0,
+        yEmu: 0,
+        widthEmu: 12_192_000,
+        heightEmu: 6_858_000,
+      },
+    });
+    expect(slide.media[0]).toMatchObject({
+      relationshipId: 'layout:ppt/slideLayouts/slideLayout1.xml:rIdLayoutImage',
+      name: 'layout-background.png',
+    });
+    expect(title).toMatchObject({
+      geometry: {
+        xEmu: 914_400,
+        yEmu: 685_800,
+        widthEmu: 5_486_400,
+        heightEmu: 914_400,
+      },
+    });
+    expect(title?.textRuns[0]).toMatchObject({
+      content: 'Layout title text',
+      colour: '#FFFFFF',
+      fontSizePt: 48,
+    });
+    expect(
+      slide.shapes.some(
+        (shape) => shape.name === 'Title 1' && shape.textRuns[0]?.content === 'Layout title prompt',
+      ),
+    ).toBe(false);
   });
 });

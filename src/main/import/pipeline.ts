@@ -1,6 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { openDatabase } from '../database';
+import {
+  NativeSlideRendererUnavailableError,
+  renderAndStorePresentationSlidesWithNativeTools,
+} from '../native-slide-renderer';
+import { renderAndStorePresentationSlides } from '../rasterizer';
 import { findMissingFonts } from './fonts';
 import { parsePpt } from './ppt';
 import { parsePptx } from './pptx';
@@ -91,6 +96,55 @@ export function importPresentationFile(
 
     report(options, {
       importId: request.importId,
+      percent: 92,
+      stage: 'rendering',
+      message: 'Rendering slide images',
+      slideCount: result.slideCount,
+    });
+
+    try {
+      renderAndStorePresentationSlidesWithNativeTools(
+        database,
+        request.filePath,
+        result.presentationId,
+        {
+          onProgress: ({ slideIndex, slideCount }) =>
+            report(options, {
+              importId: request.importId,
+              percent: 92 + Math.round((slideIndex / Math.max(slideCount, 1)) * 7),
+              stage: 'rendering',
+              message: `Rendered slide ${slideIndex} of ${slideCount} with native converter`,
+              slideIndex,
+              slideCount,
+            }),
+        },
+      );
+    } catch (error) {
+      const message = nativeRenderFallbackMessage(error);
+
+      report(options, {
+        importId: request.importId,
+        percent: 92,
+        stage: 'rendering',
+        message,
+        slideCount: result.slideCount,
+      });
+
+      renderAndStorePresentationSlides(database, result.presentationId, {
+        onProgress: ({ slideIndex, slideCount }) =>
+          report(options, {
+            importId: request.importId,
+            percent: 92 + Math.round((slideIndex / Math.max(slideCount, 1)) * 7),
+            stage: 'rendering',
+            message: `Rendered slide ${slideIndex} of ${slideCount} with basic renderer`,
+            slideIndex,
+            slideCount,
+          }),
+      });
+    }
+
+    report(options, {
+      importId: request.importId,
       percent: 100,
       stage: 'complete',
       message: 'Import complete',
@@ -101,4 +155,16 @@ export function importPresentationFile(
   } finally {
     database.close();
   }
+}
+
+function nativeRenderFallbackMessage(error: unknown): string {
+  if (error instanceof NativeSlideRendererUnavailableError) {
+    return `${error.message} Using basic renderer instead.`;
+  }
+
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return `Native slide rendering failed: ${error.message}. Using basic renderer instead.`;
+  }
+
+  return 'Native slide rendering failed. Using basic renderer instead.';
 }

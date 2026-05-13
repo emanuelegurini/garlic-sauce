@@ -1,9 +1,10 @@
 import path from 'node:path';
 import { isMainThread, parentPort, workerData } from 'node:worker_threads';
 import type { BrowserWindow as ElectronBrowserWindow } from 'electron';
-import { openDatabase } from './main/database';
+import { openDatabase, type AppDatabase } from './main/database';
 import { PresentationImportManager, type ImportEvent } from './main/import/worker-manager';
 import { runImportWorker } from './main/import/worker-thread';
+import { ensureStoredSlideImage } from './main/rasterizer';
 
 if (!isMainThread) {
   runImportWorker(workerData, parentPort);
@@ -15,6 +16,7 @@ async function startElectronApp(): Promise<void> {
   const { app, BrowserWindow, dialog, ipcMain } = await import('electron');
 
   let mainWindow: ElectronBrowserWindow | null = null;
+  let database: AppDatabase | null = null;
   let closeDatabase: (() => void) | null = null;
   let importManager: PresentationImportManager | null = null;
 
@@ -27,8 +29,11 @@ async function startElectronApp(): Promise<void> {
 
   const createWindow = () => {
     const databasePath = path.join(app.getPath('userData'), 'garlic-sauce.db');
-    const database = openDatabase(databasePath);
-    closeDatabase = () => database.close();
+    database = openDatabase(databasePath);
+    closeDatabase = () => {
+      database?.close();
+      database = null;
+    };
     importManager = new PresentationImportManager(databasePath, emitImportEvent);
 
     mainWindow = new BrowserWindow({
@@ -97,6 +102,39 @@ async function startElectronApp(): Promise<void> {
     return importManager?.cancel(importId) ?? false;
   });
 
+  ipcMain.handle('presentation:get-slide-image', (_event, request: unknown) => {
+    if (!database) {
+      return {
+        found: false as const,
+        error: 'The presentation database is not available.',
+      };
+    }
+
+    if (!isSlideImageRequest(request)) {
+      return {
+        found: false as const,
+        error: 'The slide image request was invalid.',
+      };
+    }
+
+    const image = ensureStoredSlideImage(database, request.presentationId, request.slideOrder);
+
+    if (!image) {
+      return {
+        found: false as const,
+        error: 'The requested slide image was not found.',
+      };
+    }
+
+    return {
+      found: true as const,
+      dataUrl: `data:image/png;base64,${Buffer.from(image.data).toString('base64')}`,
+      widthPx: image.widthPx,
+      heightPx: image.heightPx,
+      ...(image.renderError ? { renderError: image.renderError } : {}),
+    };
+  });
+
   await app.whenReady();
   createWindow();
 
@@ -119,4 +157,23 @@ async function startElectronApp(): Promise<void> {
       createWindow();
     }
   });
+}
+
+function isSlideImageRequest(
+  value: unknown,
+): value is { presentationId: number; slideOrder: number } {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const request = value as Partial<{ presentationId: unknown; slideOrder: unknown }>;
+
+  return (
+    typeof request.presentationId === 'number' &&
+    Number.isInteger(request.presentationId) &&
+    request.presentationId > 0 &&
+    typeof request.slideOrder === 'number' &&
+    Number.isInteger(request.slideOrder) &&
+    request.slideOrder >= 0
+  );
 }

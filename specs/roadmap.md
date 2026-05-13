@@ -8,16 +8,18 @@ Set up the Electron + React + TypeScript boilerplate with dev tooling
 (Vite, ESLint, Prettier, Vitest). Integrate SQLite for local storage.
 Verify the app launches an empty window.
 
-## Phase 2 — PowerPoint Import
+## Phase 2 — PowerPoint Import (Complete)
 
 Parse `.pptx` files directly (no external applications). Extract slides,
 layouts, fonts, colours, and embedded media. Preserve the original slide
 formatting faithfully.
 
-## Phase 3 — Basic Slide Viewer
+## Phase 3 — Basic Slide Viewer (Complete)
 
 Render imported slides in the main application window. Display one slide
-at a time, scaled to fit the window.
+at a time, scaled to fit the window. High-fidelity previews are rendered via
+LibreOffice and Poppler when available, with a basic in-process rasterizer as a
+fallback.
 
 ## Phase 4 — Slide Navigation
 
