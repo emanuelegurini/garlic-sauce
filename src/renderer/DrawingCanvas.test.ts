@@ -1,7 +1,12 @@
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
-import { DrawingCanvas, getDrawingCanvasPointerEvents } from './DrawingCanvas';
+import {
+  DrawingCanvas,
+  getDrawingCanvasCursor,
+  getDrawingCanvasPointerEvents,
+  getDroppedShapePoints,
+} from './DrawingCanvas';
 
 const defaultProps = {
   activeTool: 'pen' as const,
@@ -35,5 +40,35 @@ describe('DrawingCanvas', () => {
 
     expect(markup).toContain('pointer-events:auto');
     expect(getDrawingCanvasPointerEvents(true)).toBe('auto');
+  });
+
+  it('uses tool-specific cursors while drawing mode is active', () => {
+    expect(getDrawingCanvasCursor(false, 'pen')).toBe('default');
+    expect(getDrawingCanvasCursor(true, 'pen')).toBe('crosshair');
+    expect(getDrawingCanvasCursor(true, 'rectangle')).toBe('crosshair');
+    expect(getDrawingCanvasCursor(true, 'eraser')).toBe('none');
+  });
+
+  it('centres dropped shapes on the drop point while staying inside the canvas', () => {
+    expect(
+      getDroppedShapePoints({
+        canvasHeight: 300,
+        canvasWidth: 400,
+        point: {
+          x: 390,
+          y: 290,
+        },
+        tool: 'rectangle',
+      }),
+    ).toEqual({
+      endPoint: {
+        x: 400,
+        y: 300,
+      },
+      startPoint: {
+        x: 220,
+        y: 190,
+      },
+    });
   });
 });

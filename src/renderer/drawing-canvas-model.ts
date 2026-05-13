@@ -1,4 +1,11 @@
-export type DrawingTool = 'eraser' | 'pen';
+export const MAX_DRAWING_HISTORY_ENTRIES = 50;
+export const DRAWING_TOOL_DRAG_MIME = 'application/x-garlic-drawing-tool';
+
+export type CanvasSnapshot = string;
+
+export type DrawingTool = 'arrow' | 'ellipse' | 'eraser' | 'line' | 'pen' | 'rectangle';
+export type PlaceableDrawingTool = Extract<DrawingTool, 'arrow' | 'ellipse' | 'line' | 'rectangle'>;
+export type DrawingShapeTool = PlaceableDrawingTool;
 
 export type DrawingPoint = {
   x: number;
@@ -12,6 +19,25 @@ export type DrawingBrushSettings = {
   lineWidth: number;
   strokeStyle: string;
 };
+
+export type DrawingHistoryState = {
+  redoStack: CanvasSnapshot[];
+  undoStack: CanvasSnapshot[];
+};
+
+export type DrawingShapeElement = {
+  colour: string;
+  height: number;
+  id: string;
+  lineWidth: number;
+  tool: DrawingShapeTool;
+  type: 'shape';
+  width: number;
+  x: number;
+  y: number;
+};
+
+export type DrawingElement = DrawingShapeElement;
 
 export type StrokeCommand =
   | {
@@ -51,6 +77,48 @@ export function getDrawingBrushSettings(options: {
     lineJoin: 'round',
     lineWidth: options.penWidth,
     strokeStyle: options.penColour,
+  };
+}
+
+export function isPlaceableDrawingTool(tool: string): tool is PlaceableDrawingTool {
+  return tool === 'rectangle' || tool === 'ellipse' || tool === 'arrow' || tool === 'line';
+}
+
+export function addUndoSnapshot(
+  state: DrawingHistoryState,
+  snapshot: CanvasSnapshot,
+): DrawingHistoryState {
+  return {
+    redoStack: [],
+    undoStack: [...state.undoStack, snapshot].slice(-MAX_DRAWING_HISTORY_ENTRIES),
+  };
+}
+
+export function applyUndoSnapshot(
+  state: DrawingHistoryState,
+  currentSnapshot: CanvasSnapshot,
+): DrawingHistoryState {
+  if (state.undoStack.length === 0) {
+    return state;
+  }
+
+  return {
+    redoStack: [...state.redoStack, currentSnapshot].slice(-MAX_DRAWING_HISTORY_ENTRIES),
+    undoStack: state.undoStack.slice(0, -1),
+  };
+}
+
+export function applyRedoSnapshot(
+  state: DrawingHistoryState,
+  currentSnapshot: CanvasSnapshot,
+): DrawingHistoryState {
+  if (state.redoStack.length === 0) {
+    return state;
+  }
+
+  return {
+    redoStack: state.redoStack.slice(0, -1),
+    undoStack: [...state.undoStack, currentSnapshot].slice(-MAX_DRAWING_HISTORY_ENTRIES),
   };
 }
 

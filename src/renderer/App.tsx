@@ -38,6 +38,8 @@ export function App() {
   const [minimapOpen, setMinimapOpen] = useState(false);
   const [pendingSlideOrder, setPendingSlideOrder] = useState<number>();
   const [clearDrawingRequestId, setClearDrawingRequestId] = useState(0);
+  const [redoDrawingRequestId, setRedoDrawingRequestId] = useState(0);
+  const [undoDrawingRequestId, setUndoDrawingRequestId] = useState(0);
   const activeFileName = useMemo(() => fileNameFromPath(activeFilePath), [activeFilePath]);
   const navigation = useSlideNavigation(slideList);
   const drawingTools = useDrawingTools();
@@ -209,6 +211,8 @@ export function App() {
     setSlideListStatus('idle');
     setProgress(emptyProgress);
     setClearDrawingRequestId(0);
+    setRedoDrawingRequestId(0);
+    setUndoDrawingRequestId(0);
     drawingTools.closeDrawingMode();
 
     const startedImport = await api.importPresentation();
@@ -347,11 +351,15 @@ export function App() {
                 drawingTools={drawingTools}
                 onClearDrawing={() => setClearDrawingRequestId((requestId) => requestId + 1)}
                 onCloseDrawingMode={drawingTools.closeDrawingMode}
+                onRedoDrawing={() => setRedoDrawingRequestId((requestId) => requestId + 1)}
                 onSelectDrawingTool={drawingTools.setActiveTool}
+                onUndoDrawing={() => setUndoDrawingRequestId((requestId) => requestId + 1)}
                 presentationId={result.presentationId}
+                redoDrawingRequestId={redoDrawingRequestId}
                 slideId={currentSlide?.slideId}
                 slideOrder={navigation.currentSlideOrder}
                 title={result.title}
+                undoDrawingRequestId={undoDrawingRequestId}
               />
             )}
 

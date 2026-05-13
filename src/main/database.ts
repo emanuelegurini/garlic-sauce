@@ -66,6 +66,7 @@ export function initializeDatabase(database: AppDatabase): void {
       slide_id INTEGER NOT NULL UNIQUE,
       presentation_id INTEGER NOT NULL,
       canvas_data BLOB NOT NULL,
+      elements_json TEXT NOT NULL DEFAULT '[]',
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (slide_id) REFERENCES slides(id) ON DELETE CASCADE,
       FOREIGN KEY (presentation_id) REFERENCES presentations(id) ON DELETE CASCADE
@@ -168,6 +169,7 @@ export function initializeDatabase(database: AppDatabase): void {
   `);
 
   migrateSlidesHiddenColumn(database);
+  migrateSlideDrawingsElementsColumn(database);
 }
 
 export function writeMetadata(database: AppDatabase, key: string, value: string): void {
@@ -198,5 +200,16 @@ function migrateSlidesHiddenColumn(database: AppDatabase): void {
 
   if (!hasHiddenColumn) {
     database.exec('ALTER TABLE slides ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0');
+  }
+}
+
+function migrateSlideDrawingsElementsColumn(database: AppDatabase): void {
+  const columns = database.prepare('PRAGMA table_info(slide_drawings)').all() as Array<{
+    name: string;
+  }>;
+  const hasElementsColumn = columns.some((column) => column.name === 'elements_json');
+
+  if (!hasElementsColumn) {
+    database.exec("ALTER TABLE slide_drawings ADD COLUMN elements_json TEXT NOT NULL DEFAULT '[]'");
   }
 }

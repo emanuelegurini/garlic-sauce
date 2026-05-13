@@ -1,5 +1,11 @@
 import { useCallback, useReducer } from 'react';
-import type { DrawingTool } from './drawing-canvas-model';
+import {
+  addUndoSnapshot,
+  applyRedoSnapshot,
+  applyUndoSnapshot,
+  type CanvasSnapshot,
+  type DrawingTool,
+} from './drawing-canvas-model';
 
 export type DrawingToolsState = {
   activeTool: DrawingTool;
@@ -7,11 +13,21 @@ export type DrawingToolsState = {
   isDrawingMode: boolean;
   penColour: string;
   penWidth: number;
+  redoStack: CanvasSnapshot[];
+  undoStack: CanvasSnapshot[];
 };
 
 export type DrawingToolsAction =
   | {
-      type: 'closeDrawingMode' | 'openDrawingMode' | 'toggleDrawingMode';
+      type: 'clearHistory' | 'closeDrawingMode' | 'openDrawingMode' | 'toggleDrawingMode';
+    }
+  | {
+      currentSnapshot: CanvasSnapshot;
+      type: 'redo' | 'undo';
+    }
+  | {
+      snapshot: CanvasSnapshot;
+      type: 'recordSnapshot';
     }
   | {
       tool: DrawingTool;
@@ -19,10 +35,14 @@ export type DrawingToolsAction =
     };
 
 export type DrawingTools = DrawingToolsState & {
+  clearHistory: () => void;
   closeDrawingMode: () => void;
   openDrawingMode: () => void;
+  recordSnapshot: (snapshot: CanvasSnapshot) => void;
+  redo: (currentSnapshot: CanvasSnapshot) => void;
   setActiveTool: (tool: DrawingTool) => void;
   toggleDrawingMode: () => void;
+  undo: (currentSnapshot: CanvasSnapshot) => void;
 };
 
 export function createDefaultDrawingToolsState(): DrawingToolsState {
@@ -32,6 +52,8 @@ export function createDefaultDrawingToolsState(): DrawingToolsState {
     isDrawingMode: false,
     penColour: '#FF0000',
     penWidth: 3,
+    redoStack: [],
+    undoStack: [],
   };
 }
 
@@ -63,10 +85,35 @@ export function drawingToolsReducer(
         ...state,
         activeTool: action.tool,
       };
+    case 'clearHistory':
+      if (state.undoStack.length === 0 && state.redoStack.length === 0) {
+        return state;
+      }
+
+      return {
+        ...state,
+        redoStack: [],
+        undoStack: [],
+      };
+    case 'recordSnapshot':
+      return {
+        ...state,
+        ...addUndoSnapshot(state, action.snapshot),
+      };
+    case 'redo':
+      return {
+        ...state,
+        ...applyRedoSnapshot(state, action.currentSnapshot),
+      };
     case 'toggleDrawingMode':
       return {
         ...state,
         isDrawingMode: !state.isDrawingMode,
+      };
+    case 'undo':
+      return {
+        ...state,
+        ...applyUndoSnapshot(state, action.currentSnapshot),
       };
   }
 }
@@ -76,12 +123,30 @@ export function useDrawingTools(): DrawingTools {
     createDefaultDrawingToolsState(),
   );
 
+  const clearHistory = useCallback(() => {
+    dispatch({ type: 'clearHistory' });
+  }, []);
+
   const closeDrawingMode = useCallback(() => {
     dispatch({ type: 'closeDrawingMode' });
   }, []);
 
   const openDrawingMode = useCallback(() => {
     dispatch({ type: 'openDrawingMode' });
+  }, []);
+
+  const recordSnapshot = useCallback((snapshot: CanvasSnapshot) => {
+    dispatch({
+      snapshot,
+      type: 'recordSnapshot',
+    });
+  }, []);
+
+  const redo = useCallback((currentSnapshot: CanvasSnapshot) => {
+    dispatch({
+      currentSnapshot,
+      type: 'redo',
+    });
   }, []);
 
   const setActiveTool = useCallback((tool: DrawingTool) => {
@@ -95,11 +160,22 @@ export function useDrawingTools(): DrawingTools {
     dispatch({ type: 'toggleDrawingMode' });
   }, []);
 
+  const undo = useCallback((currentSnapshot: CanvasSnapshot) => {
+    dispatch({
+      currentSnapshot,
+      type: 'undo',
+    });
+  }, []);
+
   return {
     ...state,
+    clearHistory,
     closeDrawingMode,
     openDrawingMode,
+    recordSnapshot,
+    redo,
     setActiveTool,
     toggleDrawingMode,
+    undo,
   };
 }

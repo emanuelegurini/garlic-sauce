@@ -25,8 +25,7 @@ const config: ForgeConfig = {
       }
 
       return !includedAppPathPrefixes.some(
-        (includedPath) =>
-          filePath === includedPath || filePath.startsWith(`${includedPath}/`),
+        (includedPath) => filePath === includedPath || filePath.startsWith(`${includedPath}/`),
       );
     },
     name: 'Garlic Sauce',

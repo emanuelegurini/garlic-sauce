@@ -125,6 +125,35 @@ describe('SQLite schema initialization', () => {
     expect(row).toEqual({ hidden: 0 });
   });
 
+  it('migrates existing drawing tables to include movable element data', () => {
+    database = openDatabase(':memory:');
+    database.exec(`
+      DROP TABLE slide_drawings;
+
+      CREATE TABLE slide_drawings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        slide_id INTEGER NOT NULL UNIQUE,
+        presentation_id INTEGER NOT NULL,
+        canvas_data BLOB NOT NULL,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (slide_id) REFERENCES slides(id) ON DELETE CASCADE,
+        FOREIGN KEY (presentation_id) REFERENCES presentations(id) ON DELETE CASCADE
+      );
+    `);
+
+    initializeDatabase(database);
+
+    const columns = database.prepare('PRAGMA table_info(slide_drawings)').all() as TableInfoRow[];
+    const elementsColumn = columns.find((column) => column.name === 'elements_json');
+
+    expect(elementsColumn).toMatchObject({
+      dflt_value: "'[]'",
+      name: 'elements_json',
+      notnull: 1,
+      type: 'TEXT',
+    });
+  });
+
   it('returns undefined when metadata has not been stored', () => {
     database = openDatabase(':memory:');
 

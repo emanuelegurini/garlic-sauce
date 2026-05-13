@@ -1,5 +1,6 @@
 export type DrawingSavePayload = {
   canvasData: string;
+  elementsJson: GarlicSauceDrawingElement[];
   slideId: number;
 };
 
@@ -11,13 +12,19 @@ export type DrawingSaveDebouncer = {
 
 export type DrawingSlideSyncRequest = {
   captureCanvasData: () => string | null;
+  captureElementsJson: () => GarlicSauceDrawingElement[];
   clearCanvas: () => void;
+  clearElements: () => void;
   isDirty: boolean;
-  loadDrawing: (slideId: number) => Promise<string | null>;
+  loadDrawing: (slideId: number) => Promise<GarlicSauceSlideDrawing | null>;
   nextSlideId: number;
   previousSlideId: number | null;
-  restoreDrawing: (canvasData: string) => Promise<void> | void;
-  saveDrawing: (slideId: number, canvasData: string) => Promise<void> | void;
+  restoreDrawing: (drawing: GarlicSauceSlideDrawing) => Promise<void> | void;
+  saveDrawing: (
+    slideId: number,
+    canvasData: string,
+    elementsJson: GarlicSauceDrawingElement[],
+  ) => Promise<void> | void;
 };
 
 export function createDrawingSaveDebouncer(
@@ -71,15 +78,16 @@ export async function syncDrawingSlide(request: DrawingSlideSyncRequest): Promis
     const canvasData = request.captureCanvasData();
 
     if (canvasData) {
-      await request.saveDrawing(request.previousSlideId, canvasData);
+      await request.saveDrawing(request.previousSlideId, canvasData, request.captureElementsJson());
     }
   }
 
   request.clearCanvas();
+  request.clearElements();
 
-  const nextCanvasData = await request.loadDrawing(request.nextSlideId);
+  const nextDrawing = await request.loadDrawing(request.nextSlideId);
 
-  if (nextCanvasData) {
-    await request.restoreDrawing(nextCanvasData);
+  if (nextDrawing) {
+    await request.restoreDrawing(nextDrawing);
   }
 }
