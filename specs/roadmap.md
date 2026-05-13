@@ -21,7 +21,7 @@ at a time, scaled to fit the window. High-fidelity previews are rendered via
 LibreOffice and Poppler when available, with a basic in-process rasterizer as a
 fallback.
 
-## Phase 4 — Slide Navigation
+## Phase 4 — Slide Navigation (Complete)
 
 Add next/previous navigation with keyboard shortcuts. Allow the trainer
 to hide individual slides so they are skipped during presentation.
