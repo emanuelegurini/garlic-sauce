@@ -34,7 +34,7 @@ rich-text formatting (bold, italic, underline, bullet lists). The notes
 window follows slide navigation and is opened manually by the trainer.
 _(Combines the original Phase 5 and Phase 6 into a single deliverable.)_
 
-## Phase 6 — Drawing Tools Foundation
+## Phase 6 — Drawing Tools Foundation (Complete)
 
 Overlay a transparent canvas on the slide view. Support freehand drawing
 with basic pen and eraser.
