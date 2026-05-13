@@ -161,10 +161,39 @@ declare global {
 
   type GarlicSauceSlideDrawing = {
     canvasData: string;
+    elementsJson: GarlicSauceDrawingElement[];
     presentationId: number;
     slideId: number;
     updatedAt: string;
   };
+
+  type GarlicSauceDrawingShapeTool = 'arrow' | 'ellipse' | 'line' | 'rectangle';
+
+  type GarlicSauceDrawingShapeElement = {
+    colour: string;
+    height: number;
+    id: string;
+    lineWidth: number;
+    tool: GarlicSauceDrawingShapeTool;
+    type: 'shape';
+    width: number;
+    x: number;
+    y: number;
+  };
+
+  type GarlicSauceDrawingTextElement = {
+    colour: string;
+    fontSize: number;
+    height: number;
+    id: string;
+    text: string;
+    type: 'text';
+    width: number;
+    x: number;
+    y: number;
+  };
+
+  type GarlicSauceDrawingElement = GarlicSauceDrawingShapeElement | GarlicSauceDrawingTextElement;
 
   type GarlicSauceGetSlideDrawingResponse =
     | {
@@ -221,6 +250,7 @@ declare global {
       saveDrawing: (
         slideId: number,
         canvasData: string,
+        elementsJson?: GarlicSauceDrawingElement[],
       ) => Promise<GarlicSauceSaveSlideDrawingResponse>;
       saveNotes: (
         slideId: number,

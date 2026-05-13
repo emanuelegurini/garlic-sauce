@@ -37,9 +37,14 @@ contextBridge.exposeInMainWorld('garlicSauce', {
     };
   },
   platform: process.platform,
-  saveDrawing: (slideId: number, canvasData: string) =>
+  saveDrawing: (
+    slideId: number,
+    canvasData: string,
+    elementsJson: GarlicSauceDrawingElement[] = [],
+  ) =>
     ipcRenderer.invoke('drawing:save', {
       canvasData,
+      elementsJson,
       slideId,
     }),
   saveNotes: (slideId: number, contentJson: GarlicSauceNotesContentJson, plainText: string) =>

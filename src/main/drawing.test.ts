@@ -83,11 +83,31 @@ describe('slide drawing persistence helpers', () => {
     expect(
       saveDrawing(database, {
         canvasData: transparentPngDataUrl,
+        elementsJson: [
+          {
+            colour: '#ff0000',
+            height: 40,
+            id: 'shape-1',
+            lineWidth: 3,
+            tool: 'rectangle',
+            type: 'shape',
+            width: 80,
+            x: 10,
+            y: 20,
+          },
+        ],
         slideId,
       }),
     ).toMatchObject({
       drawing: {
         canvasData: transparentPngDataUrl,
+        elementsJson: [
+          {
+            id: 'shape-1',
+            tool: 'rectangle',
+            type: 'shape',
+          },
+        ],
         presentationId,
         slideId,
       },
@@ -97,11 +117,13 @@ describe('slide drawing persistence helpers', () => {
     expect(
       saveDrawing(database, {
         canvasData: redPngDataUrl,
+        elementsJson: [],
         slideId,
       }),
     ).toMatchObject({
       drawing: {
         canvasData: redPngDataUrl,
+        elementsJson: [],
         presentationId,
         slideId,
       },
@@ -111,6 +133,7 @@ describe('slide drawing persistence helpers', () => {
     expect(getDrawing(database, slideId)).toMatchObject({
       drawing: {
         canvasData: redPngDataUrl,
+        elementsJson: [],
         presentationId,
         slideId,
       },

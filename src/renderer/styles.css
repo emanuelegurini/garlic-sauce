@@ -294,6 +294,35 @@ progress::-webkit-progress-value {
   touch-action: none;
 }
 
+.drawing-object-layer {
+  position: absolute;
+  z-index: 3;
+  overflow: visible;
+  touch-action: none;
+}
+
+.drawing-object {
+  position: absolute;
+  cursor: move;
+  outline: 0;
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+}
+
+.drawing-object--shape {
+  overflow: visible;
+}
+
+.drawing-object--selected {
+  outline: 2px solid rgba(29, 95, 91, 0.9);
+  outline-offset: 3px;
+}
+
+.drawing-object--preview {
+  opacity: 0.72;
+}
+
 .drawing-canvas__eraser-cursor {
   position: absolute;
   z-index: 4;
@@ -309,10 +338,12 @@ progress::-webkit-progress-value {
   left: 50%;
   bottom: 18px;
   z-index: 5;
+  max-width: calc(100% - 24px);
   display: flex;
   gap: 6px;
   align-items: center;
   padding: 7px;
+  overflow-x: auto;
   border: 1px solid rgba(216, 222, 228, 0.88);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.94);
@@ -321,9 +352,12 @@ progress::-webkit-progress-value {
 }
 
 .drawing-toolbar__button {
-  min-width: 62px;
-  min-height: 34px;
-  padding: 0 10px;
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  padding: 0;
   border: 1px solid #cfd6dd;
   color: #243b39;
   background: #ffffff;
@@ -335,6 +369,14 @@ progress::-webkit-progress-value {
   background: #eef7f5;
 }
 
+.drawing-toolbar__button[draggable='true'] {
+  cursor: grab;
+}
+
+.drawing-toolbar__button[draggable='true']:active {
+  cursor: grabbing;
+}
+
 .drawing-toolbar__button--active {
   color: #ffffff;
   border-color: #1d5f5b;
@@ -343,6 +385,20 @@ progress::-webkit-progress-value {
 
 .drawing-toolbar__button--active:hover {
   background: #164b48;
+}
+
+.drawing-toolbar__button--undo {
+  margin-left: 6px;
+}
+
+.drawing-toolbar__icon {
+  width: 21px;
+  height: 21px;
+  display: block;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .slide-viewer__notice {

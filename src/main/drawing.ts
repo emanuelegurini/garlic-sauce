@@ -7,6 +7,7 @@ type SlideRow = {
 
 type SlideDrawingRow = {
   canvas_data: Buffer;
+  elements_json: string;
   presentation_id: number;
   slide_id: number;
   updated_at: string;
@@ -18,6 +19,7 @@ type RunResult = {
 
 export type SlideDrawing = {
   canvasData: string;
+  elementsJson: unknown[];
   presentationId: number;
   slideId: number;
   updatedAt: string;
@@ -74,6 +76,7 @@ export function getDrawing(database: AppDatabase, request: unknown): GetSlideDra
       `
         SELECT
           canvas_data,
+          elements_json,
           presentation_id,
           slide_id,
           updated_at
@@ -98,6 +101,7 @@ export function saveDrawing(database: AppDatabase, request: unknown): SaveSlideD
   }
 
   const canvasData = pngDataUrlToBuffer(request.canvasData);
+  const elementsJson = JSON.stringify(request.elementsJson ?? []);
 
   if (!canvasData) {
     return {
@@ -113,23 +117,27 @@ export function saveDrawing(database: AppDatabase, request: unknown): SaveSlideD
           slide_id,
           presentation_id,
           canvas_data,
+          elements_json,
           updated_at
         )
         SELECT
           id,
           presentation_id,
           @canvasData,
+          @elementsJson,
           strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
         FROM slides
         WHERE id = @slideId
         ON CONFLICT(slide_id) DO UPDATE SET
           presentation_id = excluded.presentation_id,
           canvas_data = excluded.canvas_data,
+          elements_json = excluded.elements_json,
           updated_at = excluded.updated_at
       `,
     )
     .run({
       canvasData,
+      elementsJson,
       slideId: request.slideId,
     }) as RunResult;
 
@@ -194,6 +202,7 @@ function findSlide(database: AppDatabase, slideId: number): SlideRow | undefined
 function rowToSlideDrawing(row: SlideDrawingRow): SlideDrawing {
   return {
     canvasData: bufferToPngDataUrl(row.canvas_data),
+    elementsJson: parseElementsJson(row.elements_json),
     presentationId: row.presentation_id,
     slideId: row.slide_id,
     updatedAt: row.updated_at,
@@ -216,6 +225,16 @@ function pngDataUrlToBuffer(canvasData: string): Buffer | null {
   return hasPngSignature(buffer) ? buffer : null;
 }
 
+function parseElementsJson(elementsJson: string): unknown[] {
+  try {
+    const parsed = JSON.parse(elementsJson);
+
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 function hasPngSignature(buffer: Buffer): boolean {
   return (
     buffer.length >= 8 &&
@@ -232,15 +251,24 @@ function hasPngSignature(buffer: Buffer): boolean {
 
 function isSaveDrawingRequest(value: unknown): value is {
   canvasData: string;
+  elementsJson?: unknown[];
   slideId: number;
 } {
   if (!value || typeof value !== 'object') {
     return false;
   }
 
-  const request = value as Partial<{ canvasData: unknown; slideId: unknown }>;
+  const request = value as Partial<{
+    canvasData: unknown;
+    elementsJson: unknown;
+    slideId: unknown;
+  }>;
 
-  return isPositiveInteger(request.slideId) && typeof request.canvasData === 'string';
+  return (
+    isPositiveInteger(request.slideId) &&
+    typeof request.canvasData === 'string' &&
+    (request.elementsJson === undefined || Array.isArray(request.elementsJson))
+  );
 }
 
 function isPositiveInteger(value: unknown): value is number {

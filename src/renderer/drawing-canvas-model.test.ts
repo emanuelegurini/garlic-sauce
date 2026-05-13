@@ -2,8 +2,13 @@ import { describe, expect, it } from 'vitest';
 import {
   buildStrokePath,
   calculateContainedRect,
+  type DrawingHistoryState,
+  addUndoSnapshot,
+  applyRedoSnapshot,
+  applyUndoSnapshot,
   getCanvasPoint,
   getDrawingBrushSettings,
+  isPlaceableDrawingTool,
 } from './drawing-canvas-model';
 
 describe('drawing canvas model', () => {
@@ -52,6 +57,21 @@ describe('drawing canvas model', () => {
       lineJoin: 'round',
       lineWidth: 40,
       strokeStyle: '#000000',
+    });
+
+    expect(
+      getDrawingBrushSettings({
+        eraserRadius: 20,
+        penColour: '#00AA88',
+        penWidth: 5,
+        tool: 'arrow',
+      }),
+    ).toEqual({
+      globalCompositeOperation: 'source-over',
+      lineCap: 'round',
+      lineJoin: 'round',
+      lineWidth: 5,
+      strokeStyle: '#00AA88',
     });
   });
 
@@ -107,5 +127,35 @@ describe('drawing canvas model', () => {
       x: 0,
       y: 150,
     });
+  });
+
+  it('identifies drawing tools that can be dragged onto the canvas', () => {
+    expect(isPlaceableDrawingTool('rectangle')).toBe(true);
+    expect(isPlaceableDrawingTool('ellipse')).toBe(true);
+    expect(isPlaceableDrawingTool('arrow')).toBe(true);
+    expect(isPlaceableDrawingTool('line')).toBe(true);
+    expect(isPlaceableDrawingTool('text')).toBe(false);
+    expect(isPlaceableDrawingTool('pen')).toBe(false);
+    expect(isPlaceableDrawingTool('eraser')).toBe(false);
+  });
+
+  it('moves canvas snapshots through undo and redo history', () => {
+    const initialHistory: DrawingHistoryState = {
+      redoStack: [],
+      undoStack: [],
+    };
+    const recordedHistory = addUndoSnapshot(
+      addUndoSnapshot(initialHistory, 'before-a'),
+      'before-b',
+    );
+    const undoneHistory = applyUndoSnapshot(recordedHistory, 'current-b');
+    const redoneHistory = applyRedoSnapshot(undoneHistory, 'current-a');
+
+    expect(recordedHistory.undoStack).toEqual(['before-a', 'before-b']);
+    expect(recordedHistory.redoStack).toEqual([]);
+    expect(undoneHistory.undoStack).toEqual(['before-a']);
+    expect(undoneHistory.redoStack).toEqual(['current-b']);
+    expect(redoneHistory.undoStack).toEqual(['before-a', 'current-a']);
+    expect(redoneHistory.redoStack).toEqual([]);
   });
 });

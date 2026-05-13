@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { DrawingCanvas } from './DrawingCanvas';
 import { DrawingToolbar } from './DrawingToolbar';
 import type { DrawingTool } from './drawing-canvas-model';
-import type { DrawingToolsState } from './useDrawingTools';
+import type { DrawingTools } from './useDrawingTools';
 
 type SlideViewerState =
   | {
@@ -23,14 +23,18 @@ type SlideViewerState =
 
 type SlideViewerProps = {
   clearDrawingRequestId?: number;
-  drawingTools?: DrawingToolsState;
+  drawingTools?: DrawingTools;
   onClearDrawing?: () => void;
   onCloseDrawingMode?: () => void;
+  onRedoDrawing?: () => void;
   onSelectDrawingTool?: (tool: DrawingTool) => void;
+  onUndoDrawing?: () => void;
   presentationId: number;
+  redoDrawingRequestId?: number;
   slideId?: number;
   slideOrder?: number;
   title: string;
+  undoDrawingRequestId?: number;
 };
 
 export function getCurrentSlideViewerState(
@@ -56,11 +60,15 @@ export function SlideViewer({
   drawingTools,
   onClearDrawing,
   onCloseDrawingMode,
+  onRedoDrawing,
   onSelectDrawingTool,
+  onUndoDrawing,
   presentationId,
+  redoDrawingRequestId = 0,
   slideId,
   slideOrder = 0,
   title,
+  undoDrawingRequestId = 0,
 }: SlideViewerProps) {
   const [state, setState] = useState<SlideViewerState>({ status: 'loading' });
   const currentState = getCurrentSlideViewerState(state, presentationId, slideOrder);
@@ -154,20 +162,37 @@ export function SlideViewer({
           clearRequestId={clearDrawingRequestId}
           eraserRadius={drawingTools.eraserRadius}
           isDrawingMode={drawingTools.isDrawingMode}
+          onClearHistory={drawingTools.clearHistory}
+          onRecordSnapshot={drawingTools.recordSnapshot}
+          onRedo={drawingTools.redo}
+          onUndo={drawingTools.undo}
           penColour={drawingTools.penColour}
           penWidth={drawingTools.penWidth}
+          redoRequestId={redoDrawingRequestId}
+          redoStack={drawingTools.redoStack}
           slideHeightPx={currentState.image.heightPx}
           slideId={slideId}
           slideWidthPx={currentState.image.widthPx}
+          undoRequestId={undoDrawingRequestId}
+          undoStack={drawingTools.undoStack}
         />
       ) : null}
-      {drawingTools && onClearDrawing && onCloseDrawingMode && onSelectDrawingTool ? (
+      {drawingTools &&
+      onClearDrawing &&
+      onCloseDrawingMode &&
+      onRedoDrawing &&
+      onSelectDrawingTool &&
+      onUndoDrawing ? (
         <DrawingToolbar
           activeTool={drawingTools.activeTool}
+          canRedo={drawingTools.redoStack.length > 0}
+          canUndo={drawingTools.undoStack.length > 0}
           isDrawingMode={drawingTools.isDrawingMode}
           onClear={onClearDrawing}
           onClose={onCloseDrawingMode}
+          onRedo={onRedoDrawing}
           onSelectTool={onSelectDrawingTool}
+          onUndo={onUndoDrawing}
         />
       ) : null}
       {currentState.image.renderError ? (

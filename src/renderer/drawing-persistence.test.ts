@@ -15,10 +15,12 @@ describe('drawing persistence helpers', () => {
 
     debouncer.schedule({
       canvasData: 'first',
+      elementsJson: [],
       slideId: 1,
     });
     debouncer.schedule({
       canvasData: 'second',
+      elementsJson: [],
       slideId: 1,
     });
 
@@ -29,6 +31,7 @@ describe('drawing persistence helpers', () => {
     expect(saves).toEqual([
       {
         canvasData: 'second',
+        elementsJson: [],
         slideId: 1,
       },
     ]);
@@ -45,6 +48,7 @@ describe('drawing persistence helpers', () => {
 
     debouncer.schedule({
       canvasData: 'pending',
+      elementsJson: [],
       slideId: 2,
     });
 
@@ -53,6 +57,7 @@ describe('drawing persistence helpers', () => {
     expect(saves).toEqual([
       {
         canvasData: 'pending',
+        elementsJson: [],
         slideId: 2,
       },
     ]);
@@ -68,23 +73,31 @@ describe('drawing persistence helpers', () => {
 
     await syncDrawingSlide({
       captureCanvasData: () => 'old-slide-png',
+      captureElementsJson: () => [{ id: 'shape' }] as unknown as GarlicSauceDrawingElement[],
       clearCanvas: () => calls.push('clear'),
+      clearElements: () => calls.push('clear-elements'),
       isDirty: true,
       loadDrawing: async (slideId) => {
         calls.push(`load:${slideId}`);
-        return 'next-slide-png';
+        return createDrawing('next-slide-png');
       },
       nextSlideId: 12,
       previousSlideId: 10,
-      restoreDrawing: async (canvasData) => {
-        calls.push(`restore:${canvasData}`);
+      restoreDrawing: async (drawing) => {
+        calls.push(`restore:${drawing.canvasData}`);
       },
-      saveDrawing: async (slideId, canvasData) => {
-        calls.push(`save:${slideId}:${canvasData}`);
+      saveDrawing: async (slideId, canvasData, elementsJson) => {
+        calls.push(`save:${slideId}:${canvasData}:${elementsJson.length}`);
       },
     });
 
-    expect(calls).toEqual(['save:10:old-slide-png', 'clear', 'load:12', 'restore:next-slide-png']);
+    expect(calls).toEqual([
+      'save:10:old-slide-png:1',
+      'clear',
+      'clear-elements',
+      'load:12',
+      'restore:next-slide-png',
+    ]);
   });
 
   it('does not save a clean previous slide during navigation', async () => {
@@ -92,7 +105,9 @@ describe('drawing persistence helpers', () => {
 
     await syncDrawingSlide({
       captureCanvasData: () => 'unused',
+      captureElementsJson: () => [],
       clearCanvas: () => calls.push('clear'),
+      clearElements: () => calls.push('clear-elements'),
       isDirty: false,
       loadDrawing: async (slideId) => {
         calls.push(`load:${slideId}`);
@@ -108,6 +123,59 @@ describe('drawing persistence helpers', () => {
       },
     });
 
-    expect(calls).toEqual(['clear', 'load:4']);
+    expect(calls).toEqual(['clear', 'clear-elements', 'load:4']);
+  });
+
+  it('round-trips rasterized drawing canvas data across navigation', async () => {
+    const savedDrawings = new Map<number, GarlicSauceSlideDrawing>([
+      [1, createDrawing('data:image/png;base64,drawing-canvas')],
+    ]);
+    const calls: string[] = [];
+
+    await syncDrawingSlide({
+      captureCanvasData: () => 'data:image/png;base64,drawing-canvas',
+      captureElementsJson: () => [{ id: 'rectangle' }] as unknown as GarlicSauceDrawingElement[],
+      clearCanvas: () => calls.push('clear'),
+      clearElements: () => calls.push('clear-elements'),
+      isDirty: true,
+      loadDrawing: async (slideId) => {
+        calls.push(`load:${slideId}`);
+        return savedDrawings.get(slideId) ?? null;
+      },
+      nextSlideId: 1,
+      previousSlideId: 2,
+      restoreDrawing: async (drawing) => {
+        calls.push(`restore:${drawing.canvasData}:${drawing.elementsJson.length}`);
+      },
+      saveDrawing: async (slideId, canvasData, elementsJson) => {
+        savedDrawings.set(slideId, createDrawing(canvasData, elementsJson));
+        calls.push(`save:${slideId}:${canvasData}:${elementsJson.length}`);
+      },
+    });
+
+    expect(savedDrawings.get(2)).toMatchObject({
+      canvasData: 'data:image/png;base64,drawing-canvas',
+      elementsJson: [{ id: 'rectangle' }],
+    });
+    expect(calls).toEqual([
+      'save:2:data:image/png;base64,drawing-canvas:1',
+      'clear',
+      'clear-elements',
+      'load:1',
+      'restore:data:image/png;base64,drawing-canvas:0',
+    ]);
   });
 });
+
+function createDrawing(
+  canvasData: string,
+  elementsJson: GarlicSauceDrawingElement[] = [],
+): GarlicSauceSlideDrawing {
+  return {
+    canvasData,
+    elementsJson,
+    presentationId: 1,
+    slideId: 1,
+    updatedAt: '2026-05-14T00:00:00.000Z',
+  };
+}

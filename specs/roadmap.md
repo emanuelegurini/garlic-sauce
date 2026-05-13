@@ -39,10 +39,11 @@ _(Combines the original Phase 5 and Phase 6 into a single deliverable.)_
 Overlay a transparent canvas on the slide view. Support freehand drawing
 with basic pen and eraser.
 
-## Phase 7 — Drawing Tool Palette
+## Phase 7 — Drawing Tool Palette (Complete)
 
 Add a mouse-friendly tool-switcher tab with shapes (rectangle, ellipse,
-arrow, line) and text insertion. Tools are selected by clicking the tab.
+arrow, line), drag-to-place, and toolbar undo/redo. Text insertion is
+deferred while the interaction model is refined.
 
 ## Phase 8 — Whiteboard Mode
 
