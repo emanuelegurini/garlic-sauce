@@ -26,7 +26,7 @@ fallback.
 Add next/previous navigation with keyboard shortcuts. Allow the trainer
 to hide individual slides so they are skipped during presentation.
 
-## Phase 5 — Presenter Notes Window
+## Phase 5 — Presenter Notes Window (Complete)
 
 Extract presenter notes from imported PowerPoint files, display and edit
 them in a separate Electron window (screen-share-safe), with basic
