@@ -31,6 +31,7 @@ type NativeSlideRenderTools = {
 };
 
 type NativeSlideRenderOptions = {
+  commandTimeoutMs?: number;
   onProgress?: (progress: { slideCount: number; slideIndex: number }) => void;
   tools?: Partial<NativeSlideRenderTools>;
 };
@@ -39,6 +40,18 @@ type CommandResult = {
   stderr: string;
   stdout: string;
 };
+
+const DEFAULT_COMMAND_TIMEOUT_MS = 45_000;
+
+function commandTimeoutMs(override?: number): number {
+  if (override !== undefined) {
+    return override;
+  }
+
+  const envTimeout = Number(process.env.GARLIC_SAUCE_NATIVE_RENDER_TIMEOUT_MS);
+
+  return Number.isFinite(envTimeout) && envTimeout > 0 ? envTimeout : DEFAULT_COMMAND_TIMEOUT_MS;
+}
 
 export class NativeSlideRendererUnavailableError extends Error {
   constructor(message: string) {
@@ -153,16 +166,28 @@ function resolveTools(overrides: Partial<NativeSlideRenderTools> = {}): NativeSl
   };
 }
 
-function runCommand(command: string, args: string[], cwd: string): CommandResult {
+function runCommand(
+  command: string,
+  args: string[],
+  cwd: string,
+  timeoutMs: number,
+): CommandResult {
   const result = spawnSync(command, args, {
     cwd,
     encoding: 'utf8',
     env: process.env,
     maxBuffer: 10 * 1024 * 1024,
+    timeout: timeoutMs,
     windowsHide: true,
   });
 
   if (result.error) {
+    if ('code' in result.error && result.error.code === 'ETIMEDOUT') {
+      throw new Error(
+        `${path.basename(command)} timed out after ${Math.round(timeoutMs / 1000)}s.`,
+      );
+    }
+
     throw result.error;
   }
 
@@ -186,6 +211,7 @@ function convertPresentationToPdf(
   sourcePath: string,
   outputDirectory: string,
   tools: NativeSlideRenderTools,
+  timeoutMs: number,
 ): string {
   const profileDirectory = path.join(outputDirectory, 'lo-profile');
   fs.mkdirSync(profileDirectory, { recursive: true });
@@ -205,9 +231,14 @@ function convertPresentationToPdf(
   ];
 
   if (tools.libreOfficeLaunchMode === 'launchServices') {
-    runCommand('open', ['-W', '-a', 'LibreOffice', '--args', ...args], outputDirectory);
+    runCommand(
+      'open',
+      ['-n', '-W', '-a', 'LibreOffice', '--args', ...args],
+      outputDirectory,
+      timeoutMs,
+    );
   } else {
-    runCommand(tools.libreOfficePath, args, outputDirectory);
+    runCommand(tools.libreOfficePath, args, outputDirectory, timeoutMs);
   }
 
   const expectedPdfPath = path.join(
@@ -245,10 +276,11 @@ function renderPdfWithPdftoppm(
   pdfPath: string,
   outputDirectory: string,
   pdftoppm: string,
+  timeoutMs: number,
 ): string[] {
   const outputPrefix = path.join(outputDirectory, 'slide');
 
-  runCommand(pdftoppm, ['-png', '-r', '144', pdfPath, outputPrefix], outputDirectory);
+  runCommand(pdftoppm, ['-png', '-r', '144', pdfPath, outputPrefix], outputDirectory, timeoutMs);
 
   return sortRenderedPagePaths(
     fs
@@ -262,6 +294,7 @@ function renderPdfWithImageMagick(
   pdfPath: string,
   outputDirectory: string,
   imagemagick: string,
+  timeoutMs: number,
 ): string[] {
   const outputPattern = path.join(outputDirectory, 'slide-%03d.png');
 
@@ -269,6 +302,7 @@ function renderPdfWithImageMagick(
     imagemagick,
     ['-density', '144', pdfPath, '-background', 'white', '-alpha', 'remove', outputPattern],
     outputDirectory,
+    timeoutMs,
   );
 
   return sortRenderedPagePaths(
@@ -283,12 +317,13 @@ function renderPdfToPngs(
   pdfPath: string,
   outputDirectory: string,
   tool: PdfRendererTool,
+  timeoutMs: number,
 ): string[] {
   if (tool.kind === 'pdftoppm') {
-    return renderPdfWithPdftoppm(pdfPath, outputDirectory, tool.path);
+    return renderPdfWithPdftoppm(pdfPath, outputDirectory, tool.path, timeoutMs);
   }
 
-  return renderPdfWithImageMagick(pdfPath, outputDirectory, tool.path);
+  return renderPdfWithImageMagick(pdfPath, outputDirectory, tool.path, timeoutMs);
 }
 
 function slideRows(database: AppDatabase, presentationId: number): SlideRow[] {
@@ -317,11 +352,12 @@ export function renderAndStorePresentationSlidesWithNativeTools(
   }
 
   const tools = resolveTools(options.tools);
+  const timeoutMs = commandTimeoutMs(options.commandTimeoutMs);
   const tempDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'garlic-sauce-native-render-'));
 
   try {
-    const pdfPath = convertPresentationToPdf(sourcePath, tempDirectory, tools);
-    const pagePaths = renderPdfToPngs(pdfPath, tempDirectory, tools.pdfRenderer);
+    const pdfPath = convertPresentationToPdf(sourcePath, tempDirectory, tools, timeoutMs);
+    const pagePaths = renderPdfToPngs(pdfPath, tempDirectory, tools.pdfRenderer, timeoutMs);
 
     if (pagePaths.length < slides.length) {
       throw new Error(

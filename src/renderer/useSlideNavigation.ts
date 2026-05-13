@@ -115,6 +115,10 @@ export function getNavigationKeyAction(
     return 'next';
   }
 
+  if (event.key === ' ' || event.key === 'Spacebar') {
+    return 'next';
+  }
+
   if (event.key === 'ArrowLeft') {
     return 'prev';
   }

@@ -159,10 +159,48 @@ declare global {
         error: string;
       };
 
+  type GarlicSauceSlideDrawing = {
+    canvasData: string;
+    presentationId: number;
+    slideId: number;
+    updatedAt: string;
+  };
+
+  type GarlicSauceGetSlideDrawingResponse =
+    | {
+        found: true;
+        drawing: GarlicSauceSlideDrawing | null;
+      }
+    | {
+        found: false;
+        error: string;
+      };
+
+  type GarlicSauceSaveSlideDrawingResponse =
+    | {
+        saved: true;
+        drawing: GarlicSauceSlideDrawing;
+      }
+    | {
+        saved: false;
+        error: string;
+      };
+
+  type GarlicSauceClearSlideDrawingResponse =
+    | {
+        cleared: true;
+      }
+    | {
+        cleared: false;
+        error: string;
+      };
+
   interface Window {
     garlicSauce?: {
       cancelImport: (importId: string) => Promise<boolean>;
+      clearDrawing: (slideId: number) => Promise<GarlicSauceClearSlideDrawingResponse>;
       getCurrentNotesSlide: () => Promise<GarlicSauceNotesSlideContext | null>;
+      getDrawing: (slideId: number) => Promise<GarlicSauceGetSlideDrawingResponse>;
       getNotes: (slideId: number) => Promise<GarlicSauceGetSlideNoteResponse>;
       getNotesForPresentation: (
         presentationId: number,
@@ -180,6 +218,10 @@ declare global {
         context?: GarlicSauceNotesSlideContext | null,
       ) => Promise<GarlicSauceOpenNotesWindowResponse>;
       platform: NodeJS.Platform;
+      saveDrawing: (
+        slideId: number,
+        canvasData: string,
+      ) => Promise<GarlicSauceSaveSlideDrawingResponse>;
       saveNotes: (
         slideId: number,
         contentJson: GarlicSauceNotesContentJson,
