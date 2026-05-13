@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Minimap } from './Minimap';
 import { SlideViewer } from './SlideViewer';
+import { getNavigationKeyAction, useSlideNavigation } from './useSlideNavigation';
 
 type ImportStatus = 'error' | 'idle' | 'importing' | 'selecting' | 'success';
+type SlideListStatus = 'error' | 'idle' | 'loading' | 'ready';
 
 const emptyProgress: GarlicSauceImportProgress = {
   percent: 0,
@@ -28,7 +31,23 @@ export function App() {
   const [error, setError] = useState<string>();
   const [fontPromptOpen, setFontPromptOpen] = useState(false);
   const [fontDownloadNotice, setFontDownloadNotice] = useState<string>();
+  const [slideList, setSlideList] = useState<GarlicSauceSlideListItem[]>([]);
+  const [slideListStatus, setSlideListStatus] = useState<SlideListStatus>('idle');
+  const [slideListError, setSlideListError] = useState<string>();
+  const [minimapOpen, setMinimapOpen] = useState(false);
+  const [pendingSlideOrder, setPendingSlideOrder] = useState<number>();
   const activeFileName = useMemo(() => fileNameFromPath(activeFilePath), [activeFilePath]);
+  const navigation = useSlideNavigation(slideList);
+  const hiddenSlideCount = useMemo(
+    () => slideList.filter((slide) => slide.hidden).length,
+    [slideList],
+  );
+  const isBusy = status === 'selecting' || status === 'importing';
+  const isViewing = status === 'success' && result !== undefined;
+  const slideCounter =
+    navigation.visibleSlideCount > 0
+      ? `${navigation.currentVisiblePosition} / ${navigation.visibleSlideCount}`
+      : '0 / 0';
 
   useEffect(() => {
     if (!api) {
@@ -64,6 +83,80 @@ export function App() {
     });
   }, [api]);
 
+  useEffect(() => {
+    if (!api || !result) {
+      setSlideList([]);
+      setSlideListError(undefined);
+      setSlideListStatus('idle');
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    setSlideListStatus('loading');
+    setSlideListError(undefined);
+
+    void api
+      .getSlideList(result.presentationId)
+      .then((response) => {
+        if (cancelled) {
+          return;
+        }
+
+        if (response.found) {
+          setSlideList(response.slides);
+          setSlideListStatus('ready');
+        } else {
+          setSlideList([]);
+          setSlideListError(response.error);
+          setSlideListStatus('error');
+        }
+      })
+      .catch((loadError: unknown) => {
+        if (cancelled) {
+          return;
+        }
+
+        setSlideList([]);
+        setSlideListError(
+          loadError instanceof Error ? loadError.message : 'The slide list could not be loaded.',
+        );
+        setSlideListStatus('error');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [api, result]);
+
+  useEffect(() => {
+    if (!isViewing || slideListStatus !== 'ready') {
+      return undefined;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const action = getNavigationKeyAction(event);
+
+      if (!action) {
+        return;
+      }
+
+      event.preventDefault();
+
+      if (action === 'next') {
+        navigation.goNext();
+      } else {
+        navigation.goPrev();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isViewing, navigation.goNext, navigation.goPrev, slideListStatus]);
+
   const importPresentation = async () => {
     if (!api || status === 'selecting' || status === 'importing') {
       return;
@@ -75,6 +168,10 @@ export function App() {
     setActiveFilePath(undefined);
     setFontPromptOpen(false);
     setFontDownloadNotice(undefined);
+    setMinimapOpen(false);
+    setSlideList([]);
+    setSlideListError(undefined);
+    setSlideListStatus('idle');
     setProgress(emptyProgress);
 
     const startedImport = await api.importPresentation();
@@ -102,8 +199,39 @@ export function App() {
     await api.cancelImport(activeImportId);
   };
 
-  const isBusy = status === 'selecting' || status === 'importing';
-  const isViewing = status === 'success' && result !== undefined;
+  const toggleSlideHidden = async (slideOrder: number) => {
+    if (!api || !result || pendingSlideOrder !== undefined) {
+      return;
+    }
+
+    setPendingSlideOrder(slideOrder);
+    setSlideListError(undefined);
+
+    try {
+      const response = await api.toggleSlideHidden(result.presentationId, slideOrder);
+
+      if (response.found) {
+        setSlideList((slides) =>
+          slides.map((slide) =>
+            slide.slideOrder === slideOrder ? { ...slide, hidden: response.hidden } : slide,
+          ),
+        );
+        setSlideListStatus('ready');
+      } else {
+        setSlideListError(response.error);
+        setSlideListStatus('error');
+      }
+    } catch (toggleError) {
+      setSlideListError(
+        toggleError instanceof Error
+          ? toggleError.message
+          : 'The slide visibility could not be changed.',
+      );
+      setSlideListStatus('error');
+    } finally {
+      setPendingSlideOrder(undefined);
+    }
+  };
 
   return (
     <main className="workspace">
@@ -112,24 +240,87 @@ export function App() {
           <p className="app-kicker">Garlic Sauce</p>
           <h1>{isViewing ? result.title : 'Presentation Import'}</h1>
         </div>
-        <button className="primary-action" disabled={!api || isBusy} onClick={importPresentation}>
-          {status === 'selecting'
-            ? 'Choosing file'
-            : isViewing
-              ? 'Import another deck'
-              : 'Import deck'}
-        </button>
+        <div className="titlebar__actions">
+          {isViewing ? (
+            <button className="secondary-action" onClick={() => setMinimapOpen((open) => !open)}>
+              {minimapOpen ? 'Hide minimap' : 'Show minimap'}
+            </button>
+          ) : null}
+          <button className="primary-action" disabled={!api || isBusy} onClick={importPresentation}>
+            {status === 'selecting'
+              ? 'Choosing file'
+              : isViewing
+                ? 'Import another deck'
+                : 'Import deck'}
+          </button>
+        </div>
       </header>
 
       {isViewing ? (
-        <section className="viewer-layout">
-          <SlideViewer presentationId={result.presentationId} title={result.title} />
+        <section className={`viewer-layout${minimapOpen ? ' viewer-layout--with-minimap' : ''}`}>
+          <div className="presentation-stage">
+            {slideListStatus === 'loading' || slideListStatus === 'idle' ? (
+              <ViewerMessage>Loading slide list</ViewerMessage>
+            ) : slideListStatus === 'error' ? (
+              <ViewerMessage>
+                {slideListError ?? 'The slide list could not be loaded.'}
+              </ViewerMessage>
+            ) : navigation.allSlidesHidden ? (
+              <ViewerMessage>
+                No visible slides. Reveal a slide from the minimap to resume.
+              </ViewerMessage>
+            ) : navigation.currentSlideOrder === null ? (
+              <ViewerMessage>No slides were found in this deck.</ViewerMessage>
+            ) : (
+              <SlideViewer
+                presentationId={result.presentationId}
+                slideOrder={navigation.currentSlideOrder}
+                title={result.title}
+              />
+            )}
+
+            <nav className="navigation-bar" aria-label="Slide navigation">
+              <button
+                className="secondary-action"
+                disabled={!navigation.canGoPrev || slideListStatus !== 'ready'}
+                onClick={navigation.goPrev}
+                type="button"
+              >
+                Previous
+              </button>
+              <span className="slide-counter" aria-live="polite">
+                {slideCounter}
+              </span>
+              <button
+                className="secondary-action"
+                disabled={!navigation.canGoNext || slideListStatus !== 'ready'}
+                onClick={navigation.goNext}
+                type="button"
+              >
+                Next
+              </button>
+            </nav>
+          </div>
+
+          {minimapOpen ? (
+            <Minimap
+              currentSlideOrder={navigation.currentSlideOrder}
+              onGoTo={navigation.goTo}
+              onToggleHidden={toggleSlideHidden}
+              pendingSlideOrder={pendingSlideOrder}
+              slides={slideList}
+            />
+          ) : null}
 
           <aside className="summary-panel" aria-label="Import summary">
             <dl>
               <div>
                 <dt>Slide</dt>
-                <dd>1/{result.slideCount}</dd>
+                <dd>{slideCounter}</dd>
+              </div>
+              <div>
+                <dt>Hidden</dt>
+                <dd>{hiddenSlideCount}</dd>
               </div>
               <div>
                 <dt>Media</dt>
@@ -240,6 +431,14 @@ export function App() {
         </div>
       ) : null}
     </main>
+  );
+}
+
+function ViewerMessage({ children }: { children: string }) {
+  return (
+    <section className="slide-viewer slide-viewer--message" aria-live="polite">
+      <p>{children}</p>
+    </section>
   );
 }
 

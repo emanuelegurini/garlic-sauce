@@ -4,6 +4,8 @@ contextBridge.exposeInMainWorld('garlicSauce', {
   cancelImport: (importId: string) => ipcRenderer.invoke('presentation:cancel-import', importId),
   getSlideImage: (request: GarlicSauceSlideImageRequest) =>
     ipcRenderer.invoke('presentation:get-slide-image', request),
+  getSlideList: (presentationId: number) =>
+    ipcRenderer.invoke('presentation:get-slide-list', presentationId),
   importPresentation: () => ipcRenderer.invoke('presentation:select-and-import'),
   onImportEvent: (listener: (event: unknown) => void) => {
     const wrappedListener = (_event: Electron.IpcRendererEvent, event: unknown) => listener(event);
@@ -15,6 +17,11 @@ contextBridge.exposeInMainWorld('garlicSauce', {
     };
   },
   platform: process.platform,
+  toggleSlideHidden: (presentationId: number, slideOrder: number) =>
+    ipcRenderer.invoke('presentation:toggle-slide-hidden', {
+      presentationId,
+      slideOrder,
+    }),
   versions: {
     chrome: process.versions.chrome,
     electron: process.versions.electron,

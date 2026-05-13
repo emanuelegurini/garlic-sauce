@@ -4,6 +4,7 @@ import type { BrowserWindow as ElectronBrowserWindow } from 'electron';
 import { openDatabase, type AppDatabase } from './main/database';
 import { PresentationImportManager, type ImportEvent } from './main/import/worker-manager';
 import { runImportWorker } from './main/import/worker-thread';
+import { getSlideList, toggleSlideHidden } from './main/presentation-navigation';
 import { ensureStoredSlideImage } from './main/rasterizer';
 
 if (!isMainThread) {
@@ -133,6 +134,28 @@ async function startElectronApp(): Promise<void> {
       heightPx: image.heightPx,
       ...(image.renderError ? { renderError: image.renderError } : {}),
     };
+  });
+
+  ipcMain.handle('presentation:get-slide-list', (_event, presentationId: unknown) => {
+    if (!database) {
+      return {
+        found: false as const,
+        error: 'The presentation database is not available.',
+      };
+    }
+
+    return getSlideList(database, presentationId);
+  });
+
+  ipcMain.handle('presentation:toggle-slide-hidden', (_event, request: unknown) => {
+    if (!database) {
+      return {
+        found: false as const,
+        error: 'The presentation database is not available.',
+      };
+    }
+
+    return toggleSlideHidden(database, request);
   });
 
   await app.whenReady();

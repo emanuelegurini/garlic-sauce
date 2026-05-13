@@ -44,6 +44,7 @@ export function initializeDatabase(database: AppDatabase): void {
       width_emu INTEGER NOT NULL,
       height_emu INTEGER NOT NULL,
       background_json TEXT,
+      hidden INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (presentation_id) REFERENCES presentations(id) ON DELETE CASCADE,
       UNIQUE (presentation_id, slide_order)
@@ -138,6 +139,8 @@ export function initializeDatabase(database: AppDatabase): void {
     CREATE INDEX IF NOT EXISTS idx_slide_images_presentation_order
       ON slide_images (presentation_id, slide_order);
   `);
+
+  migrateSlidesHiddenColumn(database);
 }
 
 export function writeMetadata(database: AppDatabase, key: string, value: string): void {
@@ -160,4 +163,13 @@ export function readMetadata(database: AppDatabase, key: string): string | undef
     | undefined;
 
   return row?.value;
+}
+
+function migrateSlidesHiddenColumn(database: AppDatabase): void {
+  const columns = database.prepare('PRAGMA table_info(slides)').all() as Array<{ name: string }>;
+  const hasHiddenColumn = columns.some((column) => column.name === 'hidden');
+
+  if (!hasHiddenColumn) {
+    database.exec('ALTER TABLE slides ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0');
+  }
 }

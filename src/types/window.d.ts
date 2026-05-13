@@ -65,15 +65,47 @@ declare global {
         error: string;
       };
 
+  type GarlicSauceSlideListItem = {
+    hidden: boolean;
+    renderError?: string;
+    slideOrder: number;
+    thumbnailDataUrl: string;
+  };
+
+  type GarlicSauceSlideListResponse =
+    | {
+        found: true;
+        slides: GarlicSauceSlideListItem[];
+      }
+    | {
+        found: false;
+        error: string;
+      };
+
+  type GarlicSauceToggleSlideHiddenResponse =
+    | {
+        found: true;
+        hidden: boolean;
+      }
+    | {
+        found: false;
+        error: string;
+      };
+
   interface Window {
     garlicSauce?: {
       cancelImport: (importId: string) => Promise<boolean>;
       getSlideImage: (
         request: GarlicSauceSlideImageRequest,
       ) => Promise<GarlicSauceSlideImageResponse>;
+      getSlideList: (presentationId: number) => Promise<GarlicSauceSlideListResponse>;
       importPresentation: () => Promise<GarlicSauceImportStart>;
       onImportEvent: (listener: (event: GarlicSauceImportEvent) => void) => () => void;
       platform: NodeJS.Platform;
+      toggleSlideHidden: (
+        presentationId: number,
+        slideOrder: number,
+      ) => Promise<GarlicSauceToggleSlideHiddenResponse>;
       versions: {
         chrome: string;
         electron: string;
