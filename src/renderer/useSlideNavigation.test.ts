@@ -72,9 +72,11 @@ describe('useSlideNavigation logic', () => {
     });
   });
 
-  it('maps left and right arrow keys to navigation actions', () => {
+  it('maps arrow keys and spacebar to navigation actions', () => {
     expect(getNavigationKeyAction({ key: 'ArrowRight', target: null })).toBe('next');
     expect(getNavigationKeyAction({ key: 'ArrowLeft', target: null })).toBe('prev');
+    expect(getNavigationKeyAction({ key: ' ', target: null })).toBe('next');
+    expect(getNavigationKeyAction({ key: 'Spacebar', target: null })).toBe('next');
     expect(getNavigationKeyAction({ key: 'Enter', target: null })).toBeUndefined();
   });
 

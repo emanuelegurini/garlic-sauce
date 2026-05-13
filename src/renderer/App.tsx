@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Minimap } from './Minimap';
 import { SlideViewer } from './SlideViewer';
+import { useDrawingTools } from './useDrawingTools';
 import { getNavigationKeyAction, useSlideNavigation } from './useSlideNavigation';
 
 type ImportStatus = 'error' | 'idle' | 'importing' | 'selecting' | 'success';
@@ -36,8 +37,10 @@ export function App() {
   const [slideListError, setSlideListError] = useState<string>();
   const [minimapOpen, setMinimapOpen] = useState(false);
   const [pendingSlideOrder, setPendingSlideOrder] = useState<number>();
+  const [clearDrawingRequestId, setClearDrawingRequestId] = useState(0);
   const activeFileName = useMemo(() => fileNameFromPath(activeFilePath), [activeFilePath]);
   const navigation = useSlideNavigation(slideList);
+  const drawingTools = useDrawingTools();
   const hiddenSlideCount = useMemo(
     () => slideList.filter((slide) => slide.hidden).length,
     [slideList],
@@ -183,6 +186,12 @@ export function App() {
     );
   }, [api, currentNotesContext, isViewing, slideListStatus]);
 
+  useEffect(() => {
+    if (!isViewing || slideListStatus !== 'ready' || !currentSlide) {
+      drawingTools.closeDrawingMode();
+    }
+  }, [currentSlide, drawingTools.closeDrawingMode, isViewing, slideListStatus]);
+
   const importPresentation = async () => {
     if (!api || status === 'selecting' || status === 'importing') {
       return;
@@ -199,6 +208,8 @@ export function App() {
     setSlideListError(undefined);
     setSlideListStatus('idle');
     setProgress(emptyProgress);
+    setClearDrawingRequestId(0);
+    drawingTools.closeDrawingMode();
 
     const startedImport = await api.importPresentation();
 
@@ -286,6 +297,17 @@ export function App() {
                 Notes
               </button>
               <button
+                aria-pressed={drawingTools.isDrawingMode}
+                className={`secondary-action${
+                  drawingTools.isDrawingMode ? ' secondary-action--active' : ''
+                }`}
+                disabled={!api || !currentSlide || slideListStatus !== 'ready'}
+                onClick={drawingTools.toggleDrawingMode}
+                type="button"
+              >
+                Draw
+              </button>
+              <button
                 className="secondary-action"
                 onClick={() => setMinimapOpen((open) => !open)}
                 type="button"
@@ -321,7 +343,13 @@ export function App() {
               <ViewerMessage>No slides were found in this deck.</ViewerMessage>
             ) : (
               <SlideViewer
+                clearDrawingRequestId={clearDrawingRequestId}
+                drawingTools={drawingTools}
+                onClearDrawing={() => setClearDrawingRequestId((requestId) => requestId + 1)}
+                onCloseDrawingMode={drawingTools.closeDrawingMode}
+                onSelectDrawingTool={drawingTools.setActiveTool}
                 presentationId={result.presentationId}
+                slideId={currentSlide?.slideId}
                 slideOrder={navigation.currentSlideOrder}
                 title={result.title}
               />

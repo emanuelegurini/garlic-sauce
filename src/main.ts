@@ -2,6 +2,7 @@ import path from 'node:path';
 import { isMainThread, parentPort, workerData } from 'node:worker_threads';
 import type { BrowserWindow as ElectronBrowserWindow } from 'electron';
 import { openDatabase, type AppDatabase } from './main/database';
+import { clearDrawing, getDrawing, saveDrawing } from './main/drawing';
 import { PresentationImportManager, type ImportEvent } from './main/import/worker-manager';
 import { runImportWorker } from './main/import/worker-thread';
 import { getNotes, getNotesForPresentation, saveNotes, type NotesSlideContext } from './main/notes';
@@ -227,6 +228,39 @@ async function startElectronApp(): Promise<void> {
     }
 
     return toggleSlideHidden(database, request);
+  });
+
+  ipcMain.handle('drawing:get', (_event, slideId: unknown) => {
+    if (!database) {
+      return {
+        found: false as const,
+        error: 'The presentation database is not available.',
+      };
+    }
+
+    return getDrawing(database, slideId);
+  });
+
+  ipcMain.handle('drawing:save', (_event, request: unknown) => {
+    if (!database) {
+      return {
+        saved: false as const,
+        error: 'The presentation database is not available.',
+      };
+    }
+
+    return saveDrawing(database, request);
+  });
+
+  ipcMain.handle('drawing:clear', (_event, slideId: unknown) => {
+    if (!database) {
+      return {
+        cleared: false as const,
+        error: 'The presentation database is not available.',
+      };
+    }
+
+    return clearDrawing(database, slideId);
   });
 
   ipcMain.handle('notes:get', (_event, slideId: unknown) => {

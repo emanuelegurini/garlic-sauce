@@ -1,4 +1,8 @@
 import { useEffect, useState } from 'react';
+import { DrawingCanvas } from './DrawingCanvas';
+import { DrawingToolbar } from './DrawingToolbar';
+import type { DrawingTool } from './drawing-canvas-model';
+import type { DrawingToolsState } from './useDrawingTools';
 
 type SlideViewerState =
   | {
@@ -6,21 +10,60 @@ type SlideViewerState =
     }
   | {
       message: string;
+      presentationId: number;
+      slideOrder: number;
       status: 'error';
     }
   | {
       image: Extract<GarlicSauceSlideImageResponse, { found: true }>;
+      presentationId: number;
+      slideOrder: number;
       status: 'ready';
     };
 
 type SlideViewerProps = {
+  clearDrawingRequestId?: number;
+  drawingTools?: DrawingToolsState;
+  onClearDrawing?: () => void;
+  onCloseDrawingMode?: () => void;
+  onSelectDrawingTool?: (tool: DrawingTool) => void;
   presentationId: number;
+  slideId?: number;
   slideOrder?: number;
   title: string;
 };
 
-export function SlideViewer({ presentationId, slideOrder = 0, title }: SlideViewerProps) {
+export function getCurrentSlideViewerState(
+  state: SlideViewerState,
+  presentationId: number,
+  slideOrder: number,
+): SlideViewerState {
+  if (state.status === 'loading') {
+    return state;
+  }
+
+  if (state.presentationId === presentationId && state.slideOrder === slideOrder) {
+    return state;
+  }
+
+  return {
+    status: 'loading',
+  };
+}
+
+export function SlideViewer({
+  clearDrawingRequestId = 0,
+  drawingTools,
+  onClearDrawing,
+  onCloseDrawingMode,
+  onSelectDrawingTool,
+  presentationId,
+  slideId,
+  slideOrder = 0,
+  title,
+}: SlideViewerProps) {
   const [state, setState] = useState<SlideViewerState>({ status: 'loading' });
+  const currentState = getCurrentSlideViewerState(state, presentationId, slideOrder);
 
   useEffect(() => {
     let cancelled = false;
@@ -40,11 +83,15 @@ export function SlideViewer({ presentationId, slideOrder = 0, title }: SlideView
         if (response.found) {
           setState({
             image: response,
+            presentationId,
+            slideOrder,
             status: 'ready',
           });
         } else {
           setState({
             message: response.error,
+            presentationId,
+            slideOrder,
             status: 'error',
           });
         }
@@ -56,6 +103,8 @@ export function SlideViewer({ presentationId, slideOrder = 0, title }: SlideView
 
         setState({
           message: error instanceof Error ? error.message : 'The slide image could not be loaded.',
+          presentationId,
+          slideOrder,
           status: 'error',
         });
       });
@@ -73,7 +122,7 @@ export function SlideViewer({ presentationId, slideOrder = 0, title }: SlideView
     );
   }
 
-  if (state.status === 'loading') {
+  if (currentState.status === 'loading') {
     return (
       <section className="slide-viewer slide-viewer--message" aria-live="polite">
         <span className="loading-spinner" aria-hidden="true" />
@@ -82,10 +131,10 @@ export function SlideViewer({ presentationId, slideOrder = 0, title }: SlideView
     );
   }
 
-  if (state.status === 'error') {
+  if (currentState.status === 'error') {
     return (
       <section className="slide-viewer slide-viewer--message" aria-live="polite">
-        <p>{state.message}</p>
+        <p>{currentState.message}</p>
       </section>
     );
   }
@@ -94,13 +143,35 @@ export function SlideViewer({ presentationId, slideOrder = 0, title }: SlideView
     <section className="slide-viewer" aria-label="Current slide">
       <img
         className="slide-viewer__image"
-        src={state.image.dataUrl}
-        width={state.image.widthPx}
-        height={state.image.heightPx}
+        src={currentState.image.dataUrl}
+        width={currentState.image.widthPx}
+        height={currentState.image.heightPx}
         alt={`${title} slide ${slideOrder + 1}`}
       />
-      {state.image.renderError ? (
-        <p className="slide-viewer__notice">{state.image.renderError}</p>
+      {drawingTools && slideId ? (
+        <DrawingCanvas
+          activeTool={drawingTools.activeTool}
+          clearRequestId={clearDrawingRequestId}
+          eraserRadius={drawingTools.eraserRadius}
+          isDrawingMode={drawingTools.isDrawingMode}
+          penColour={drawingTools.penColour}
+          penWidth={drawingTools.penWidth}
+          slideHeightPx={currentState.image.heightPx}
+          slideId={slideId}
+          slideWidthPx={currentState.image.widthPx}
+        />
+      ) : null}
+      {drawingTools && onClearDrawing && onCloseDrawingMode && onSelectDrawingTool ? (
+        <DrawingToolbar
+          activeTool={drawingTools.activeTool}
+          isDrawingMode={drawingTools.isDrawingMode}
+          onClear={onClearDrawing}
+          onClose={onCloseDrawingMode}
+          onSelectTool={onSelectDrawingTool}
+        />
+      ) : null}
+      {currentState.image.renderError ? (
+        <p className="slide-viewer__notice">{currentState.image.renderError}</p>
       ) : null}
     </section>
   );

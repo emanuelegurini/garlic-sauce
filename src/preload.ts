@@ -2,6 +2,8 @@ import { contextBridge, ipcRenderer } from 'electron';
 
 contextBridge.exposeInMainWorld('garlicSauce', {
   cancelImport: (importId: string) => ipcRenderer.invoke('presentation:cancel-import', importId),
+  clearDrawing: (slideId: number) => ipcRenderer.invoke('drawing:clear', slideId),
+  getDrawing: (slideId: number) => ipcRenderer.invoke('drawing:get', slideId),
   getSlideImage: (request: GarlicSauceSlideImageRequest) =>
     ipcRenderer.invoke('presentation:get-slide-image', request),
   getSlideList: (presentationId: number) =>
@@ -35,6 +37,11 @@ contextBridge.exposeInMainWorld('garlicSauce', {
     };
   },
   platform: process.platform,
+  saveDrawing: (slideId: number, canvasData: string) =>
+    ipcRenderer.invoke('drawing:save', {
+      canvasData,
+      slideId,
+    }),
   saveNotes: (slideId: number, contentJson: GarlicSauceNotesContentJson, plainText: string) =>
     ipcRenderer.invoke('notes:save', {
       contentJson,

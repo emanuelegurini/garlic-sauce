@@ -121,6 +121,15 @@ h2 {
   background: #d2dfdc;
 }
 
+.secondary-action--active {
+  color: #ffffff;
+  background: #1d5f5b;
+}
+
+.secondary-action--active:hover:not(:disabled) {
+  background: #164b48;
+}
+
 .import-surface {
   align-self: start;
   display: grid;
@@ -278,10 +287,69 @@ progress::-webkit-progress-value {
   object-fit: contain;
 }
 
+.drawing-canvas {
+  position: absolute;
+  z-index: 2;
+  display: block;
+  touch-action: none;
+}
+
+.drawing-canvas__eraser-cursor {
+  position: absolute;
+  z-index: 4;
+  border: 2px solid rgba(29, 95, 91, 0.88);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.22);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.75);
+  pointer-events: none;
+}
+
+.drawing-toolbar {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  z-index: 5;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 7px;
+  border: 1px solid rgba(216, 222, 228, 0.88);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 12px 28px rgba(17, 24, 39, 0.22);
+  transform: translateX(-50%);
+}
+
+.drawing-toolbar__button {
+  min-width: 62px;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid #cfd6dd;
+  color: #243b39;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.drawing-toolbar__button:hover {
+  border-color: #1d5f5b;
+  background: #eef7f5;
+}
+
+.drawing-toolbar__button--active {
+  color: #ffffff;
+  border-color: #1d5f5b;
+  background: #1d5f5b;
+}
+
+.drawing-toolbar__button--active:hover {
+  background: #164b48;
+}
+
 .slide-viewer__notice {
   position: absolute;
   right: 14px;
   bottom: 14px;
+  z-index: 6;
   max-width: min(520px, calc(100% - 28px));
   padding: 8px 10px;
   border: 1px solid #f0b8b3;

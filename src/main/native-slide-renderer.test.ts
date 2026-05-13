@@ -169,4 +169,41 @@ fs.writeFileSync(prefix + '-2.png', png);
       ),
     ).toThrow(NativeSlideRendererUnavailableError);
   });
+
+  it('fails native rendering instead of waiting indefinitely when conversion hangs', () => {
+    database = openDatabase(':memory:');
+    const tempDirectory = makeTempDirectory();
+    const sourcePath = path.join(tempDirectory, 'deck.pptx');
+    const fakeSoffice = path.join(tempDirectory, 'fake-hanging-soffice.cjs');
+    const fakePdftoppm = path.join(tempDirectory, 'fake-pdftoppm.cjs');
+
+    fs.writeFileSync(sourcePath, 'pptx');
+    writeExecutable(
+      fakeSoffice,
+      `#!/usr/bin/env node
+setTimeout(() => undefined, 10_000);
+`,
+    );
+    writeExecutable(
+      fakePdftoppm,
+      `#!/usr/bin/env node
+process.exit(0);
+`,
+    );
+
+    const presentationId = insertPresentation(1);
+
+    expect(() =>
+      renderAndStorePresentationSlidesWithNativeTools(database!, sourcePath, presentationId, {
+        commandTimeoutMs: 50,
+        tools: {
+          libreOfficePath: fakeSoffice,
+          pdfRenderer: {
+            kind: 'pdftoppm',
+            path: fakePdftoppm,
+          },
+        },
+      }),
+    ).toThrow(/timed out/i);
+  });
 });
