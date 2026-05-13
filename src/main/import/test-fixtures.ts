@@ -173,6 +173,78 @@ export function createSamplePptx(): Buffer {
   ]);
 }
 
+export function createNotesPptx(): Buffer {
+  return createStoredZip([
+    zipEntry(
+      '[Content_Types].xml',
+      `<?xml version="1.0" encoding="UTF-8"?>
+      <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+        <Default Extension="xml" ContentType="application/xml"/>
+        <Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>
+        <Override PartName="/ppt/slides/slide1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>
+        <Override PartName="/ppt/slides/slide2.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>
+        <Override PartName="/ppt/notesSlides/notesSlide1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml"/>
+      </Types>`,
+    ),
+    zipEntry(
+      'ppt/presentation.xml',
+      `<p:presentation xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"
+        xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+        <p:sldSz cx="12192000" cy="6858000" type="screen16x9"/>
+        <p:sldIdLst>
+          <p:sldId id="256" r:id="rId1"/>
+          <p:sldId id="257" r:id="rId2"/>
+        </p:sldIdLst>
+      </p:presentation>`,
+    ),
+    zipEntry(
+      'ppt/_rels/presentation.xml.rels',
+      `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+        <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide1.xml"/>
+        <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide2.xml"/>
+      </Relationships>`,
+    ),
+    zipEntry(
+      'ppt/slides/slide1.xml',
+      `<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"
+        xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+        <p:cSld><p:spTree/></p:cSld>
+      </p:sld>`,
+    ),
+    zipEntry(
+      'ppt/slides/_rels/slide1.xml.rels',
+      `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+        <Relationship Id="rIdNotes1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide" Target="../notesSlides/notesSlide1.xml"/>
+      </Relationships>`,
+    ),
+    zipEntry(
+      'ppt/slides/slide2.xml',
+      `<p:sld xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"
+        xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+        <p:cSld><p:spTree/></p:cSld>
+      </p:sld>`,
+    ),
+    zipEntry(
+      'ppt/notesSlides/notesSlide1.xml',
+      `<p:notes xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"
+        xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+        <p:cSld>
+          <p:spTree>
+            <p:sp>
+              <p:nvSpPr><p:cNvPr id="2" name="Notes Placeholder"/><p:cNvSpPr/><p:nvPr><p:ph type="body"/></p:nvPr></p:nvSpPr>
+              <p:txBody>
+                <a:bodyPr/>
+                <a:p><a:r><a:t>Welcome the room</a:t></a:r></a:p>
+                <a:p><a:r><a:t>Mention safety setup</a:t></a:r></a:p>
+              </p:txBody>
+            </p:sp>
+          </p:spTree>
+        </p:cSld>
+      </p:notes>`,
+    ),
+  ]);
+}
+
 export function createLayoutBackedPptx(): Buffer {
   return createStoredZip([
     zipEntry(

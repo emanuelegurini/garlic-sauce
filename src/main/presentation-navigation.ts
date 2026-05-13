@@ -5,6 +5,7 @@ const THUMBNAIL_WIDTH_PX = 240;
 
 type SlideListRow = {
   hidden: 0 | 1;
+  id: number;
   slide_order: number;
 };
 
@@ -19,6 +20,7 @@ type SlideHiddenRow = {
 export type PresentationSlideListItem = {
   hidden: boolean;
   renderError?: string;
+  slideId: number;
   slideOrder: number;
   thumbnailDataUrl: string;
 };
@@ -73,7 +75,7 @@ export function getSlideList(
   const rows = database
     .prepare(
       `
-        SELECT slide_order, hidden
+        SELECT id, slide_order, hidden
         FROM slides
         WHERE presentation_id = ?
         ORDER BY slide_order
@@ -89,6 +91,7 @@ export function getSlideList(
     return {
       hidden: row.hidden === 1,
       ...(image?.renderError ? { renderError: image.renderError } : {}),
+      slideId: row.id,
       slideOrder: row.slide_order,
       thumbnailDataUrl: image ? toPngDataUrl(image.data) : '',
     };

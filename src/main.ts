@@ -4,6 +4,7 @@ import type { BrowserWindow as ElectronBrowserWindow } from 'electron';
 import { openDatabase, type AppDatabase } from './main/database';
 import { PresentationImportManager, type ImportEvent } from './main/import/worker-manager';
 import { runImportWorker } from './main/import/worker-thread';
+import { getNotes, getNotesForPresentation, saveNotes, type NotesSlideContext } from './main/notes';
 import { getSlideList, toggleSlideHidden } from './main/presentation-navigation';
 import { ensureStoredSlideImage } from './main/rasterizer';
 
@@ -17,15 +18,91 @@ async function startElectronApp(): Promise<void> {
   const { app, BrowserWindow, dialog, ipcMain } = await import('electron');
 
   let mainWindow: ElectronBrowserWindow | null = null;
+  let notesWindow: ElectronBrowserWindow | null = null;
   let database: AppDatabase | null = null;
   let closeDatabase: (() => void) | null = null;
   let importManager: PresentationImportManager | null = null;
+  let currentNotesSlide: NotesSlideContext | null = null;
 
   const emitImportEvent = (importId: string, event: ImportEvent) => {
     mainWindow?.webContents.send('presentation:import-event', {
       importId,
       ...event,
     });
+  };
+
+  const emitNotesSlideChanged = () => {
+    notesWindow?.webContents.send('notes-window:slide-changed', currentNotesSlide);
+  };
+
+  const rendererHtmlPath = () =>
+    path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`);
+
+  const loadRendererWindow = (window: ElectronBrowserWindow, windowMode: 'main' | 'notes') => {
+    if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+      const devServerUrl = new URL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
+
+      if (windowMode !== 'main') {
+        devServerUrl.searchParams.set('window', windowMode);
+      }
+
+      void window.loadURL(devServerUrl.toString());
+      return;
+    }
+
+    if (windowMode === 'notes') {
+      void window.loadFile(rendererHtmlPath(), {
+        query: {
+          window: windowMode,
+        },
+      });
+      return;
+    }
+
+    void window.loadFile(rendererHtmlPath());
+  };
+
+  const createNotesWindow = () => {
+    if (notesWindow && !notesWindow.isDestroyed()) {
+      notesWindow.show();
+      notesWindow.focus();
+      emitNotesSlideChanged();
+      return notesWindow;
+    }
+
+    notesWindow = new BrowserWindow({
+      backgroundColor: '#f4f6f8',
+      height: 720,
+      minHeight: 420,
+      minWidth: 380,
+      show: false,
+      title: 'Presenter Notes',
+      width: 520,
+      webPreferences: {
+        contextIsolation: true,
+        nodeIntegration: false,
+        preload: path.join(__dirname, 'preload.js'),
+        sandbox: false,
+      },
+    });
+
+    notesWindow.setContentProtection(true);
+    notesWindow.setSkipTaskbar(true);
+
+    notesWindow.once('ready-to-show', () => {
+      notesWindow?.show();
+      emitNotesSlideChanged();
+    });
+
+    notesWindow.webContents.on('did-finish-load', emitNotesSlideChanged);
+
+    notesWindow.on('closed', () => {
+      notesWindow = null;
+    });
+
+    loadRendererWindow(notesWindow, 'notes');
+
+    return notesWindow;
   };
 
   const createWindow = () => {
@@ -60,13 +137,7 @@ async function startElectronApp(): Promise<void> {
       mainWindow = null;
     });
 
-    if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-      void mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
-    } else {
-      void mainWindow.loadFile(
-        path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
-      );
-    }
+    loadRendererWindow(mainWindow, 'main');
   };
 
   ipcMain.handle('presentation:select-and-import', async () => {
@@ -158,6 +229,77 @@ async function startElectronApp(): Promise<void> {
     return toggleSlideHidden(database, request);
   });
 
+  ipcMain.handle('notes:get', (_event, slideId: unknown) => {
+    if (!database) {
+      return {
+        found: false as const,
+        error: 'The presentation database is not available.',
+      };
+    }
+
+    return getNotes(database, slideId);
+  });
+
+  ipcMain.handle('notes:save', (_event, request: unknown) => {
+    if (!database) {
+      return {
+        saved: false as const,
+        error: 'The presentation database is not available.',
+      };
+    }
+
+    return saveNotes(database, request);
+  });
+
+  ipcMain.handle('notes:get-for-presentation', (_event, presentationId: unknown) => {
+    if (!database) {
+      return {
+        found: false as const,
+        error: 'The presentation database is not available.',
+      };
+    }
+
+    return getNotesForPresentation(database, presentationId);
+  });
+
+  ipcMain.handle('notes:open-window', (_event, context: unknown) => {
+    if (context !== undefined) {
+      if (context !== null && !isNotesSlideContext(context)) {
+        return {
+          error: 'The notes window context was invalid.',
+          opened: false as const,
+        };
+      }
+
+      currentNotesSlide = context;
+    }
+
+    createNotesWindow();
+    emitNotesSlideChanged();
+
+    return {
+      opened: true as const,
+    };
+  });
+
+  ipcMain.handle('notes:set-current-slide', (_event, context: unknown) => {
+    if (context !== null && !isNotesSlideContext(context)) {
+      return {
+        error: 'The notes slide context was invalid.',
+        found: false as const,
+      };
+    }
+
+    currentNotesSlide = context;
+    emitNotesSlideChanged();
+
+    return {
+      found: true as const,
+    };
+  });
+
+  ipcMain.handle('notes:get-current-slide', () => currentNotesSlide);
+
   await app.whenReady();
   createWindow();
 
@@ -198,5 +340,26 @@ function isSlideImageRequest(
     typeof request.slideOrder === 'number' &&
     Number.isInteger(request.slideOrder) &&
     request.slideOrder >= 0
+  );
+}
+
+function isNotesSlideContext(value: unknown): value is NotesSlideContext {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const context = value as Partial<Record<keyof NotesSlideContext, unknown>>;
+
+  return (
+    typeof context.presentationId === 'number' &&
+    Number.isInteger(context.presentationId) &&
+    context.presentationId > 0 &&
+    typeof context.slideId === 'number' &&
+    Number.isInteger(context.slideId) &&
+    context.slideId > 0 &&
+    typeof context.slideOrder === 'number' &&
+    Number.isInteger(context.slideOrder) &&
+    context.slideOrder >= 0 &&
+    typeof context.title === 'string'
   );
 }

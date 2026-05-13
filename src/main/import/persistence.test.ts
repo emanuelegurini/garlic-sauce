@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { openDatabase, type AppDatabase } from '../database';
 import { importPresentationFile, parsePresentationBuffer } from './pipeline';
 import { persistImportedPresentation } from './persistence';
-import { createSamplePptx } from './test-fixtures';
+import { createNotesPptx, createSamplePptx } from './test-fixtures';
 
 let database: AppDatabase | undefined;
 const tempPaths: string[] = [];
@@ -92,5 +92,30 @@ describe('presentation import persistence', () => {
       | { data: Buffer }
       | undefined;
     expect(image?.data.length).toBeGreaterThan(0);
+  });
+
+  it('stores extracted presenter notes during import persistence', () => {
+    database = openDatabase(':memory:');
+    const presentation = parsePresentationBuffer(createNotesPptx(), '/tmp/notes.pptx');
+
+    persistImportedPresentation(database, presentation, []);
+
+    expect(
+      database
+        .prepare(
+          `
+            SELECT slide_notes.plain_text, slides.slide_order
+            FROM slide_notes
+            JOIN slides ON slides.id = slide_notes.slide_id
+            ORDER BY slides.slide_order
+          `,
+        )
+        .all(),
+    ).toEqual([
+      {
+        plain_text: 'Welcome the room\nMention safety setup',
+        slide_order: 0,
+      },
+    ]);
   });
 });

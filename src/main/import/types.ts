@@ -110,6 +110,7 @@ export type ImportedSlide = {
   order: number;
   layoutName?: string;
   size: SlideSize;
+  notes?: string;
   background?: FillStyle;
   shapes: ImportedShape[];
   media: ImportedMedia[];
