@@ -48,6 +48,22 @@ export function App() {
     navigation.visibleSlideCount > 0
       ? `${navigation.currentVisiblePosition} / ${navigation.visibleSlideCount}`
       : '0 / 0';
+  const currentSlide = useMemo(
+    () => slideList.find((slide) => slide.slideOrder === navigation.currentSlideOrder),
+    [navigation.currentSlideOrder, slideList],
+  );
+  const currentNotesContext = useMemo<GarlicSauceNotesSlideContext | null>(() => {
+    if (!isViewing || !result || !currentSlide) {
+      return null;
+    }
+
+    return {
+      presentationId: result.presentationId,
+      slideId: currentSlide.slideId,
+      slideOrder: currentSlide.slideOrder,
+      title: result.title,
+    };
+  }, [currentSlide, isViewing, result]);
 
   useEffect(() => {
     if (!api) {
@@ -157,6 +173,16 @@ export function App() {
     };
   }, [isViewing, navigation.goNext, navigation.goPrev, slideListStatus]);
 
+  useEffect(() => {
+    if (!api) {
+      return;
+    }
+
+    void api.setCurrentNotesSlide(
+      isViewing && slideListStatus === 'ready' ? currentNotesContext : null,
+    );
+  }, [api, currentNotesContext, isViewing, slideListStatus]);
+
   const importPresentation = async () => {
     if (!api || status === 'selecting' || status === 'importing') {
       return;
@@ -189,6 +215,14 @@ export function App() {
       stage: 'reading',
       message: 'Opening selected file',
     });
+  };
+
+  const openNotesWindow = async () => {
+    if (!api) {
+      return;
+    }
+
+    await api.openNotesWindow(currentNotesContext);
   };
 
   const cancelImport = async () => {
@@ -242,9 +276,23 @@ export function App() {
         </div>
         <div className="titlebar__actions">
           {isViewing ? (
-            <button className="secondary-action" onClick={() => setMinimapOpen((open) => !open)}>
-              {minimapOpen ? 'Hide minimap' : 'Show minimap'}
-            </button>
+            <>
+              <button
+                className="secondary-action"
+                disabled={!api || !currentNotesContext}
+                onClick={openNotesWindow}
+                type="button"
+              >
+                Notes
+              </button>
+              <button
+                className="secondary-action"
+                onClick={() => setMinimapOpen((open) => !open)}
+                type="button"
+              >
+                {minimapOpen ? 'Hide minimap' : 'Show minimap'}
+              </button>
+            </>
           ) : null}
           <button className="primary-action" disabled={!api || isBusy} onClick={importPresentation}>
             {status === 'selecting'

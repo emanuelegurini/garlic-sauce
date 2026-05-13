@@ -805,6 +805,44 @@ function resolveSlideLayoutPath(entries: ZipEntries, slidePath: string): string 
   return resolvePackagePath(slidePath, layoutRelationship.target);
 }
 
+function resolveSlideNotesPath(entries: ZipEntries, slidePath: string): string | undefined {
+  const relationshipXml = getXml(entries, relationshipPathFor(slidePath));
+  const notesRelationship = relationshipXml
+    ? parseRelationships(relationshipXml).find(
+        (relationship) =>
+          relationship.type.endsWith('/notesSlide') && relationship.targetMode !== 'External',
+      )
+    : undefined;
+
+  if (notesRelationship) {
+    return resolvePackagePath(slidePath, notesRelationship.target);
+  }
+
+  const slideNumber = path.posix.basename(slidePath).match(/^slide(\d+)\.xml$/)?.[1];
+  const conventionalNotesPath = slideNumber
+    ? `ppt/notesSlides/notesSlide${slideNumber}.xml`
+    : undefined;
+
+  return conventionalNotesPath && entries.has(conventionalNotesPath)
+    ? conventionalNotesPath
+    : undefined;
+}
+
+function parseNotesText(notesXml: string): string | undefined {
+  const paragraphs = findElements(notesXml, 'p')
+    .map((paragraph) => textContent(paragraph.inner, 't').trim())
+    .filter((paragraphText) => paragraphText.length > 0);
+
+  return paragraphs.length > 0 ? paragraphs.join('\n') : undefined;
+}
+
+function parseSlideNotes(entries: ZipEntries, slidePath: string): string | undefined {
+  const notesPath = resolveSlideNotesPath(entries, slidePath);
+  const notesXml = notesPath ? getXml(entries, notesPath) : undefined;
+
+  return notesXml ? parseNotesText(notesXml) : undefined;
+}
+
 function parseSlideLayout(
   entries: ZipEntries,
   slidePath: string,
@@ -934,6 +972,7 @@ export function parsePptx(
       order: slideIndex,
       layoutName: layout?.name,
       size,
+      notes: parseSlideNotes(entries, slidePath),
       background: background ? parseFill(background.full, theme) : undefined,
       shapes: materializeSlideShapes(slideShapes, layout),
       media: [

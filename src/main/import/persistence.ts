@@ -90,6 +90,21 @@ export function persistImportedPresentation(
       )
     `);
 
+    const insertSlideNote = database.prepare(`
+      INSERT INTO slide_notes (
+        slide_id,
+        presentation_id,
+        content_json,
+        plain_text
+      )
+      VALUES (
+        @slideId,
+        @presentationId,
+        '{}',
+        @plainText
+      )
+    `);
+
     const insertTextRun = database.prepare(`
       INSERT INTO text_runs (
         shape_id,
@@ -184,6 +199,15 @@ export function persistImportedPresentation(
       }) as RunResult;
 
       const slideId = toRowId(slideResult.lastInsertRowid);
+      const notes = slide.notes?.trim();
+
+      if (notes && notes.length > 0) {
+        insertSlideNote.run({
+          slideId,
+          presentationId,
+          plainText: notes,
+        });
+      }
 
       slide.shapes.forEach((shape, shapeIndex) => {
         const shapeResult = insertShape.run({

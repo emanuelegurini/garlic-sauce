@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parsePresentationBuffer } from './pipeline';
-import { createLayoutBackedPptx, createSamplePptx } from './test-fixtures';
+import { createLayoutBackedPptx, createNotesPptx, createSamplePptx } from './test-fixtures';
 
 describe('PPTX import parsing', () => {
   it('extracts slide order, dimensions, text formatting, theme colours, and media', () => {
@@ -121,5 +121,13 @@ describe('PPTX import parsing', () => {
         (shape) => shape.name === 'Title 1' && shape.textRuns[0]?.content === 'Layout title prompt',
       ),
     ).toBe(false);
+  });
+
+  it('extracts presenter notes from related notes slide parts', () => {
+    const presentation = parsePresentationBuffer(createNotesPptx(), '/tmp/notes.pptx');
+
+    expect(presentation.slides).toHaveLength(2);
+    expect(presentation.slides[0].notes).toBe('Welcome the room\nMention safety setup');
+    expect(presentation.slides[1].notes).toBeUndefined();
   });
 });

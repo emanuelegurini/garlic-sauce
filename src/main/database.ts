@@ -50,6 +50,17 @@ export function initializeDatabase(database: AppDatabase): void {
       UNIQUE (presentation_id, slide_order)
     );
 
+    CREATE TABLE IF NOT EXISTS slide_notes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      slide_id INTEGER NOT NULL UNIQUE,
+      presentation_id INTEGER NOT NULL,
+      content_json TEXT NOT NULL DEFAULT '{}',
+      plain_text TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (slide_id) REFERENCES slides(id) ON DELETE CASCADE,
+      FOREIGN KEY (presentation_id) REFERENCES presentations(id) ON DELETE CASCADE
+    );
+
     CREATE TABLE IF NOT EXISTS shapes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       slide_id INTEGER NOT NULL,
@@ -126,6 +137,9 @@ export function initializeDatabase(database: AppDatabase): void {
 
     CREATE INDEX IF NOT EXISTS idx_slides_presentation_order
       ON slides (presentation_id, slide_order);
+
+    CREATE INDEX IF NOT EXISTS idx_slide_notes_presentation_slide
+      ON slide_notes (presentation_id, slide_id);
 
     CREATE INDEX IF NOT EXISTS idx_shapes_slide_order
       ON shapes (slide_id, shape_order);

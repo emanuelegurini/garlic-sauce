@@ -68,6 +68,7 @@ declare global {
   type GarlicSauceSlideListItem = {
     hidden: boolean;
     renderError?: string;
+    slideId: number;
     slideOrder: number;
     thumbnailDataUrl: string;
   };
@@ -92,16 +93,101 @@ declare global {
         error: string;
       };
 
+  type GarlicSauceNotesContentJson = Record<string, unknown>;
+
+  type GarlicSauceSlideNote = {
+    contentJson: GarlicSauceNotesContentJson;
+    plainText: string;
+    presentationId: number;
+    slideId: number;
+    slideOrder?: number;
+    updatedAt?: string;
+  };
+
+  type GarlicSauceGetSlideNoteResponse =
+    | {
+        found: true;
+        note: GarlicSauceSlideNote;
+      }
+    | {
+        found: false;
+        error: string;
+      };
+
+  type GarlicSauceSaveSlideNoteResponse =
+    | {
+        saved: true;
+        note: GarlicSauceSlideNote;
+      }
+    | {
+        saved: false;
+        error: string;
+      };
+
+  type GarlicSaucePresentationNotesResponse =
+    | {
+        found: true;
+        notes: GarlicSauceSlideNote[];
+      }
+    | {
+        found: false;
+        error: string;
+      };
+
+  type GarlicSauceNotesSlideContext = {
+    presentationId: number;
+    slideId: number;
+    slideOrder: number;
+    title: string;
+  };
+
+  type GarlicSauceOpenNotesWindowResponse =
+    | {
+        opened: true;
+      }
+    | {
+        opened: false;
+        error: string;
+      };
+
+  type GarlicSauceSetCurrentNotesSlideResponse =
+    | {
+        found: true;
+      }
+    | {
+        found: false;
+        error: string;
+      };
+
   interface Window {
     garlicSauce?: {
       cancelImport: (importId: string) => Promise<boolean>;
+      getCurrentNotesSlide: () => Promise<GarlicSauceNotesSlideContext | null>;
+      getNotes: (slideId: number) => Promise<GarlicSauceGetSlideNoteResponse>;
+      getNotesForPresentation: (
+        presentationId: number,
+      ) => Promise<GarlicSaucePresentationNotesResponse>;
       getSlideImage: (
         request: GarlicSauceSlideImageRequest,
       ) => Promise<GarlicSauceSlideImageResponse>;
       getSlideList: (presentationId: number) => Promise<GarlicSauceSlideListResponse>;
       importPresentation: () => Promise<GarlicSauceImportStart>;
       onImportEvent: (listener: (event: GarlicSauceImportEvent) => void) => () => void;
+      onNotesSlideChanged: (
+        listener: (context: GarlicSauceNotesSlideContext | null) => void,
+      ) => () => void;
+      openNotesWindow: (
+        context?: GarlicSauceNotesSlideContext | null,
+      ) => Promise<GarlicSauceOpenNotesWindowResponse>;
       platform: NodeJS.Platform;
+      saveNotes: (
+        slideId: number,
+        contentJson: GarlicSauceNotesContentJson,
+        plainText: string,
+      ) => Promise<GarlicSauceSaveSlideNoteResponse>;
+      setCurrentNotesSlide: (
+        context: GarlicSauceNotesSlideContext | null,
+      ) => Promise<GarlicSauceSetCurrentNotesSlideResponse>;
       toggleSlideHidden: (
         presentationId: number,
         slideOrder: number,

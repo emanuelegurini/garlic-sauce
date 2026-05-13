@@ -26,38 +26,35 @@ fallback.
 Add next/previous navigation with keyboard shortcuts. Allow the trainer
 to hide individual slides so they are skipped during presentation.
 
-## Phase 5 — Presenter Notes Panel
+## Phase 5 — Presenter Notes Window
 
-Display slide notes alongside the current slide inside the main window.
+Extract presenter notes from imported PowerPoint files, display and edit
+them in a separate Electron window (screen-share-safe), with basic
+rich-text formatting (bold, italic, underline, bullet lists). The notes
+window follows slide navigation and is opened manually by the trainer.
+_(Combines the original Phase 5 and Phase 6 into a single deliverable.)_
 
-## Phase 6 — Detached Notes Window
-
-Open notes in a separate Electron window so the trainer can share only
-the slide window while reading notes privately on another screen (or in
-another area of the same screen).
-
-## Phase 7 — Drawing Tools Foundation
+## Phase 6 — Drawing Tools Foundation
 
 Overlay a transparent canvas on the slide view. Support freehand drawing
 with basic pen and eraser.
 
-## Phase 8 — Drawing Tool Palette
+## Phase 7 — Drawing Tool Palette
 
 Add a mouse-friendly tool-switcher tab with shapes (rectangle, ellipse,
 arrow, line) and text insertion. Tools are selected by clicking the tab.
 
-## Phase 9 — Whiteboard Mode
+## Phase 8 — Whiteboard Mode
 
 Provide a blank canvas the trainer can switch to at any time without
 leaving the application, then switch back to slides.
 
-## Phase 10 — Rich Text Note Editor
+## Phase 9 — Rich Text Note Editor
 
-Replace the plain-text notes panel with a rich-text editor supporting
-bold, italic, font selection, and other formatting — editable directly
-inside the app.
+Replace the basic notes formatting with a full rich-text editor supporting
+font selection, colours, headings, and other advanced formatting.
 
-## Phase 11 — Polish & Packaging
+## Phase 10 — Polish & Packaging
 
 App icon, installer builds for macOS / Windows / Linux, window management
 refinements, and final UX polish.
